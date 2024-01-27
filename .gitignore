@@ -1,0 +1,5 @@
+**/build
+**/obj_dir
+.vscode
+**/fpga_proj
+**/__pycache__
