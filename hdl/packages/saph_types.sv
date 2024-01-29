@@ -6,6 +6,15 @@
 
 
 package saph_types;
+// Import float types.
+`ifdef usef64
+typedef svfloat::float64 float;
+typedef svfloat::float32 half;
+`else
+typedef svfloat::float32 float;
+typedef svfloat::float16 half;
+`endif
+
 // 24-bit ARGB color.
 typedef struct packed {
     bit[7:0] a;
@@ -37,4 +46,14 @@ typedef struct packed {
     // Format of blue channel.
     chfmt b;
 } pixfmt;
+
+// Rasterizer vertex information.
+typedef struct packed {
+    // Spatial position.
+    float x, y, z;
+    // Texture position.
+    float u, v;
+    // Vertex color.
+    color vcol;
+} vertex;
 endpackage
