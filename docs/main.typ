@@ -8,7 +8,7 @@
 #show: project.with(
   title: "Sapphire Shader Core ISA",
   authors: (
-    "Jesús Sanz del Rey", "Robot",
+    "Jesús Sanz del Rey", "Julian Scheffers",
   ),
   date: datetime.today().display("[month repr:long] [day], [year]"),
 )
