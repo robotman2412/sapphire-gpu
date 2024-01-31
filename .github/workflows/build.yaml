@@ -12,7 +12,7 @@ jobs:
         with:
           source_file: docs/main.typ
       - name: Upload PDF Result
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: PDF
+          name: ISA.pdf
           path: docs/main.pdf
