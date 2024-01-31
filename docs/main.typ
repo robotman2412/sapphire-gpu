@@ -10,7 +10,7 @@
   authors: (
     "Jesús Sanz del Rey", "Robot",
   ),
-  date: "January 31, 2024",
+  date: datetime.today().display("[month repr:long] [day], [year]"),
 )
 
 // We generated the example code below so you can see how
