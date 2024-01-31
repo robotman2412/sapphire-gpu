@@ -101,4 +101,18 @@ struct debug_symbol {
     char    line[MAX_LINE_LENGTH];
 };
 
+typedef struct {
+    uint32_t regs[16];
+    uint32_t PC;
+} gpu_context_t;
+
+typedef enum {
+    at_end = 0,
+    normal_execution = 1,
+    queue_write = 2,
+    invalid_address = -1,
+} single_step_result_t;
+
+single_step_result_t single_step(gpu_context_t *ctx, uint32_t *code, uint8_t *mem, uint32_t *queue_data, int *queue);
+
 #endif

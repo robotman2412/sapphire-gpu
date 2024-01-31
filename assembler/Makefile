@@ -6,10 +6,13 @@ LFLAGS=-g
 
 OBJ_DIR := build
 
-as_SRC=sapphire-as.c gpu.c
-as_OBJ := $(addprefix $(OBJ_DIR)/,$(addsuffix .c.o,$(notdir $(basename $(as_SRC)))))
+as_SRC = sapphire-as.c gpu.c
+debugger_SRC = sapphire-debugger.c gpu.c
 
-all: sapphire-as
+as_OBJ := $(addprefix $(OBJ_DIR)/,$(addsuffix .c.o,$(notdir $(basename $(as_SRC)))))
+debugger_OBJ := $(addprefix $(OBJ_DIR)/,$(addsuffix .c.o,$(notdir $(basename $(debugger_SRC)))))
+
+all: sapphire-as sapphire-debugger
 
 $(OBJ_DIR)/%.c.o: %.c
 	@mkdir -p $(OBJ_DIR)
@@ -18,8 +21,11 @@ $(OBJ_DIR)/%.c.o: %.c
 sapphire-as: $(as_OBJ)
 	@$(LD) $(LFLAGS) -o sapphire-as $(as_OBJ)
 
+sapphire-debugger: $(debugger_OBJ)
+	@$(LD) $(LFLAGS) -o sapphire-debugger $(as_OBJ)
+
 clean:
-	@rm -f *.o as
+	@rm -f $(OBJ_DIR)/*.o sapphire-as sapphire-debugger
 
 clean-obj:
-	@rm -f *.o
+	@rm -f $(OBJ_DIR)/*.o

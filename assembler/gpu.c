@@ -96,3 +96,230 @@ uint32_t encode_instruction(uint32_t opgroup, uint32_t opcode,
 
     return res;
 }
+
+single_step_result_t single_step(gpu_context_t *ctx, uint32_t *code, uint8_t *mem, uint32_t *queue_data, int *queue) {
+    uint32_t instruction = code[ctx->PC];
+
+    uint8_t opgroup = instruction >> 30;
+    uint8_t rd = (instruction >> 26) & 0xF;
+    uint8_t rs1 = (instruction >> 22) & 0xF;
+    uint8_t rs2 = (instruction >> 8) & 0xF;
+    uint8_t simd = (instruction << 20) & 0x3;
+    bool large_imm = (instruction & 0x1000);
+
+    uint32_t dest_list[4];
+    uint32_t rs1_list[4];
+    uint32_t rs2_list[4];
+    uint32_t reg_count = 1;
+    switch(simd) {
+        case 1:
+            for(int i = 0; i < 2; i++) {
+                dest_list[i] = ((rd & 0x7) << 1) + i;
+                rs1_list[i] = ((rs1 & 0x7) << 1) + i;
+                rs2_list[i] = ((rs2 & 0x7) << 1) + i;
+            }
+            reg_count = 2;
+            break;
+        case 2:
+            for(int i = 0; i < 4; i++) {
+                dest_list[i] = ((rd & 0x3) << 2) + i;
+                rs1_list[i] = ((rs1 & 0x3) << 2) + i;
+                rs2_list[i] = ((rs2 & 0x3) << 2) + i;
+            }
+            reg_count = 4;
+            break;
+        case 0:
+        default:
+            dest_list[0] = rd;
+            rs1_list[0] = rs1;
+            rs2_list[0] = rs2;
+            break;
+    }
+
+    uint32_t rs1_data[4];
+    uint32_t rs2_data[4];
+    for(int i = 0; i < 4; i++) {
+        rs1_data[i] = ctx->regs[rs1_list[i]];
+        rs2_data[i] = ctx->regs[rs2_list[i]];
+    }
+
+    uint32_t arithImm = (large_imm) ? (instruction & 0xFFF) : (instruction & 0xFF);
+    uint32_t arithImmS = arithImm;
+    if((instruction & 0xF00) == 0 && (instruction & 0x80) != 0) {
+        arithImmS |= 0xFFFFFF00;
+    } else if((instruction & 0xF00) != 0 && (instruction & 0x800) != 0) {
+        arithImmS |= 0xFFFFF000;
+    }
+
+    uint32_t memImm;
+    if(instruction & 0x80000) {
+        memImm = ((instruction >> 6) & 0xF0000) | ((instruction >> 1) & 0xF000) | (instruction & 0xFFF);
+        if(memImm & 0x80000) memImm |= 0xFFF00000;
+    } else {
+        memImm = ((instruction >> 1) & 0xF000) | (instruction & 0xFFF);
+        if(memImm & 0x8000) memImm |= 0xFFFF0000;
+    }
+
+    uint32_t pcImm = ((instruction >> 4) & 0xFF00) | (instruction & 0xFF);
+
+    uint8_t arithOp = (instruction >> 13) & 0x7F;
+    uint8_t memOp = (instruction >> 17) & 0x3;
+    uint8_t pcOp = (instruction >> 20) & 0x3;
+    uint8_t systemOp = (instruction >> 13) & 0x1FF;
+
+    switch(opgroup) {
+        case 0x0:
+            for(int i = 0; i < reg_count; i++) {
+                uint32_t arithOp1 = rs1_data[i];
+                uint32_t arithOp2 = (large_imm) ? arithImmS : rs2_data[i];
+                float arithfOp1 = *((float *)&arithOp1);
+                float arithfOp2 = *((float *)&arithOp2);
+
+                switch(arithOp) {
+                    case AND: ctx->regs[dest_list[i]] = arithOp1 & arithOp2; break;
+                    case OR : ctx->regs[dest_list[i]] = arithOp1 | arithOp2; break;
+                    case XOR: ctx->regs[dest_list[i]] = arithOp1 ^ arithOp2; break;
+                    case SLL: ctx->regs[dest_list[i]] = arithOp1 << arithOp2; break;
+                    case SRL: ctx->regs[dest_list[i]] = arithOp1 >> arithOp2; break;
+                    case SRA: ctx->regs[dest_list[i]] = (uint32_t)((int32_t)arithOp1 >> arithOp2); break;
+                    case ADD: ctx->regs[dest_list[i]] = arithOp1 + arithOp2; break;
+                    case SUB: ctx->regs[dest_list[i]] = arithOp1 - arithOp2; break;
+                    case MUL: ctx->regs[dest_list[i]] = (uint32_t)((int64_t)(int32_t)arithOp1 * (int64_t)(int32_t)arithOp2); break;
+                    case DIV: ctx->regs[dest_list[i]] = (uint32_t)((int32_t)arithOp1 / (int32_t)arithOp2); break;
+                    case CMP: ctx->regs[dest_list[i]] = (arithOp1 < arithOp2) ? 1 : 0; break; //TODO
+                    case ITOF:
+                        {
+                            float value = (float)arithOp1;
+                            uint32_t converted = *((uint32_t *)&value);
+                            ctx->regs[dest_list[i]] = converted;
+                        }
+                        break;
+                    case MULU: ctx->regs[dest_list[i]] = (uint32_t)((uint64_t)arithOp1 * (uint64_t)arithOp2); break;
+                    case DIVU: ctx->regs[dest_list[i]] = (uint32_t)(arithOp1 / arithOp2); break;
+                    case MULH: ctx->regs[dest_list[i]] = (uint32_t)((uint64_t)((int64_t)(int32_t)arithOp1 * (int64_t)(int32_t)arithOp2) >> 32); break;
+                    case REM : ctx->regs[dest_list[i]] = (uint32_t)((int32_t)arithOp1 % (int32_t)arithOp2); break;
+                    case MULHU: ctx->regs[dest_list[i]] = (uint32_t)(((uint64_t)arithOp1 * (uint64_t)arithOp2) >> 32); break;
+                    case REMU: ctx->regs[dest_list[i]] = (uint32_t)((uint32_t)arithOp1 % (uint32_t)arithOp2); break;
+                    case FADD:
+                        {
+                            float result = arithfOp1 + arithfOp2;
+                            ctx->regs[dest_list[i]] = *((uint32_t *)&result);
+                        }
+                        break;
+                    case FSUB:
+                        {
+                            float result = arithfOp1 - arithfOp2;
+                            ctx->regs[dest_list[i]] = *((uint32_t *)&result);
+                        }
+                        break;
+                    case FMUL:
+                        {
+                            float result = arithfOp1 * arithfOp2;
+                            ctx->regs[dest_list[i]] = *((uint32_t *)&result);
+                        }
+                        break;
+                    case FDIV:
+                        {
+                            float result = arithfOp1 / arithfOp2;
+                            ctx->regs[dest_list[i]] = *((uint32_t *)&result);
+                        }
+                        break;
+                    case FCMP: ctx->regs[dest_list[i]] = (arithfOp1 < arithfOp2) ? 1 : 0; break;
+                    case FTOI:
+                        {
+                            uint32_t value = arithOp1;
+                            float converted = *((float *)&value);
+                            ctx->regs[dest_list[i]] = (int32_t)converted;
+                        }
+                        break;
+                    default:
+                        return -1;
+                }
+            }
+            ctx->PC++;
+            break;
+        case 0x1:
+            {
+                uint32_t address = rs1_data[0] + memImm;
+                uint8_t size = (instruction >> 20) & 0x3;
+                if(memOp < 0x4) {
+                    switch(size) {
+                        case 1: if(address & 0x1) return invalid_address; break;
+                        case 2: if(address & 0x3) return invalid_address; break;
+                    }
+                }
+                switch(memOp) {
+                    case 0x0: //LOAD Signed
+                        switch(size) {
+                            case 0x0: ctx->regs[rd] = (uint32_t)(int32_t)(int8_t)mem[address];
+                            case 0x1: ctx->regs[rd] = (uint32_t)(int32_t)(int16_t)(*((uint16_t *)&mem[address]));
+                            case 0x2: ctx->regs[rd] = *((uint32_t *)&mem[address]);
+                            default: return -1;
+                        }
+                        break;
+                    case 0x1: //STORE Signed
+                        switch(size) {
+                            case 0x0: mem[address] = rs2_data[0]; break;
+                            case 0x1: *((uint16_t *)&mem[address]) = rs2_data[0]; break;
+                            case 0x2: *((uint32_t *)&mem[address]) = rs2_data[0]; break;
+                            default: return -1;
+                        }
+                        break;
+                    case 0x3: // LOAD Unsigned
+                        switch(size) {
+                            case 0x0: ctx->regs[rd] = mem[address];
+                            case 0x1: ctx->regs[rd] = *((uint16_t *)&mem[address]);
+                            case 0x2: ctx->regs[rd] = *((uint32_t *)&mem[address]);
+                            default: return -1;
+                        }
+                        break;
+                    case 0x4: ctx->regs[rd] = ctx->PC + memImm; break;
+                    case 0x5: ctx->regs[rd] = memImm << 12; break;
+                    default:
+                        return -1;
+                }
+            }
+            ctx->PC++;
+            break;
+        case 0x2:
+            {
+                switch(pcOp) {
+                    case JMP:
+                        ctx->PC += pcImm;
+                        break;
+                    case BRS:
+                        if(rs1_data[0] & 0x1)
+                            ctx->PC += pcImm;
+                        else
+                            ctx->PC++;
+                        break;
+                    default:
+                        return -1;
+                }
+            }
+            break;
+        case 0x3:
+            {
+                switch(systemOp) {
+                    case END:
+                        return at_end;
+                        break;
+                    case STOREQ:
+                        *queue = pcImm;
+                        for(int i = 0; i < 8; i++)
+                            queue_data[i] = ctx->regs[i];
+                        ctx->PC++;
+                        return queue_write;
+                        break;
+                    default:
+                        return -1;
+                }
+            }
+            ctx->PC++;
+            break;
+        default:
+            break;
+    }
+
+    return normal_execution;
+}
