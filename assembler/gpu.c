@@ -3,31 +3,83 @@
 #include <stddef.h>
 
 instruction_t instructions[] = {
-    {   "and",   OP_ARITHMETIC  , AND  ,    DEST, REG1,      REG2 },
-    {   "or",    OP_ARITHMETIC  , OR   ,    DEST, REG1,      REG2 },
-    {   "xor",   OP_ARITHMETIC  , XOR  ,    DEST, REG1,      REG2 },
-    {   "sll",   OP_ARITHMETIC  , SLL  ,    DEST, REG1,      REG2 },
-    {   "srl",   OP_ARITHMETIC  , SRL  ,    DEST, REG1,      REG2 },
-    {   "sra",   OP_ARITHMETIC  , SRA  ,    DEST, REG1,      REG2 },
-    {   "add",   OP_ARITHMETIC  , ADD  ,    DEST, REG1,      REG2 },
-    {   "sub",   OP_ARITHMETIC  , SUB  ,    DEST, REG1,      REG2 },
-    {   "mul",   OP_ARITHMETIC  , MUL  ,    DEST, REG1,      REG2 },
-    {   "div",   OP_ARITHMETIC  , DIV  ,    DEST, REG1,      REG2 },
-    {   "cmp",   OP_ARITHMETIC  , CMP  ,    DEST, REG1,      REG2 },
-    {   "itof",  OP_ARITHMETIC  , ITOF ,    DEST, REG1,      REG2 },
-    {   "mulu",  OP_ARITHMETIC  , MULU ,    DEST, REG1,      REG2 },
-    {   "divu",  OP_ARITHMETIC  , DIVU ,    DEST, REG1,      REG2 },
-    {   "mulh",  OP_ARITHMETIC  , MULH ,    DEST, REG1,      REG2 },
-    {   "rem",   OP_ARITHMETIC  , REM  ,    DEST, REG1,      REG2 },
-    {   "mulhu", OP_ARITHMETIC  , MULHU,    DEST, REG1,      REG2 },
-    {   "remu",  OP_ARITHMETIC  , REMU ,    DEST, REG1,      REG2 },
-    {   "fadd",  OP_ARITHMETIC  , FADD ,    DEST, REG1,      REG2 },
-    {   "fsub",  OP_ARITHMETIC  , FSUB ,    DEST, REG1,      REG2 },
-    {   "fmul",  OP_ARITHMETIC  , FMUL ,    DEST, REG1,      REG2 },
-    {   "fdiv",  OP_ARITHMETIC  , FDIV ,    DEST, REG1,      REG2 },
-    {   "fcmp",  OP_ARITHMETIC  , FCMP ,    DEST, REG1,      REG2 },
-    {   "ftoi",  OP_ARITHMETIC  , FTOI ,    DEST, REG1,      REG2 },
-    {   "addi",  OP_ARITHMETIC  , ADD  ,    DEST, REG1, LARGE_IMM },
+    {   "and",   OP_ARITHMETIC  , SIMD1 | AND  ,    DEST, REG1,      REG2 },
+    {   "or",    OP_ARITHMETIC  , SIMD1 | OR   ,    DEST, REG1,      REG2 },
+    {   "xor",   OP_ARITHMETIC  , SIMD1 | XOR  ,    DEST, REG1,      REG2 },
+    {   "sll",   OP_ARITHMETIC  , SIMD1 | SLL  ,    DEST, REG1,      REG2 },
+    {   "srl",   OP_ARITHMETIC  , SIMD1 | SRL  ,    DEST, REG1,      REG2 },
+    {   "sra",   OP_ARITHMETIC  , SIMD1 | SRA  ,    DEST, REG1,      REG2 },
+    {   "add",   OP_ARITHMETIC  , SIMD1 | ADD  ,    DEST, REG1,      REG2 },
+    {   "sub",   OP_ARITHMETIC  , SIMD1 | SUB  ,    DEST, REG1,      REG2 },
+    {   "mul",   OP_ARITHMETIC  , SIMD1 | MUL  ,    DEST, REG1,      REG2 },
+    {   "div",   OP_ARITHMETIC  , SIMD1 | DIV  ,    DEST, REG1,      REG2 },
+    {   "cmp",   OP_ARITHMETIC  , SIMD1 | CMP  ,    DEST, REG1,      REG2 },
+    {   "itof",  OP_ARITHMETIC  , SIMD1 | ITOF ,    DEST, REG1,      REG2 },
+    {   "mulu",  OP_ARITHMETIC  , SIMD1 | MULU ,    DEST, REG1,      REG2 },
+    {   "divu",  OP_ARITHMETIC  , SIMD1 | DIVU ,    DEST, REG1,      REG2 },
+    {   "mulh",  OP_ARITHMETIC  , SIMD1 | MULH ,    DEST, REG1,      REG2 },
+    {   "rem",   OP_ARITHMETIC  , SIMD1 | REM  ,    DEST, REG1,      REG2 },
+    {   "mulhu", OP_ARITHMETIC  , SIMD1 | MULHU,    DEST, REG1,      REG2 },
+    {   "remu",  OP_ARITHMETIC  , SIMD1 | REMU ,    DEST, REG1,      REG2 },
+    {   "fadd",  OP_ARITHMETIC  , SIMD1 | FADD ,    DEST, REG1,      REG2 },
+    {   "fsub",  OP_ARITHMETIC  , SIMD1 | FSUB ,    DEST, REG1,      REG2 },
+    {   "fmul",  OP_ARITHMETIC  , SIMD1 | FMUL ,    DEST, REG1,      REG2 },
+    {   "fdiv",  OP_ARITHMETIC  , SIMD1 | FDIV ,    DEST, REG1,      REG2 },
+    {   "fcmp",  OP_ARITHMETIC  , SIMD1 | FCMP ,    DEST, REG1,      REG2 },
+    {   "ftoi",  OP_ARITHMETIC  , SIMD1 | FTOI ,    DEST, REG1,      REG2 },
+    {   "addi",  OP_ARITHMETIC  , SIMD1 | ADD  ,    DEST, REG1, LARGE_IMM },
+
+    {   "and2",   OP_ARITHMETIC , SIMD2 | AND  ,    DEST, REG1,      REG2 },
+    {   "or2",    OP_ARITHMETIC , SIMD2 | OR   ,    DEST, REG1,      REG2 },
+    {   "xor2",   OP_ARITHMETIC , SIMD2 | XOR  ,    DEST, REG1,      REG2 },
+    {   "sll2",   OP_ARITHMETIC , SIMD2 | SLL  ,    DEST, REG1,      REG2 },
+    {   "srl2",   OP_ARITHMETIC , SIMD2 | SRL  ,    DEST, REG1,      REG2 },
+    {   "sra2",   OP_ARITHMETIC , SIMD2 | SRA  ,    DEST, REG1,      REG2 },
+    {   "add2",   OP_ARITHMETIC , SIMD2 | ADD  ,    DEST, REG1,      REG2 },
+    {   "sub2",   OP_ARITHMETIC , SIMD2 | SUB  ,    DEST, REG1,      REG2 },
+    {   "mul2",   OP_ARITHMETIC , SIMD2 | MUL  ,    DEST, REG1,      REG2 },
+    {   "div2",   OP_ARITHMETIC , SIMD2 | DIV  ,    DEST, REG1,      REG2 },
+    {   "cmp2",   OP_ARITHMETIC , SIMD2 | CMP  ,    DEST, REG1,      REG2 },
+    {   "itof2",  OP_ARITHMETIC , SIMD2 | ITOF ,    DEST, REG1,      REG2 },
+    {   "mulu2",  OP_ARITHMETIC , SIMD2 | MULU ,    DEST, REG1,      REG2 },
+    {   "divu2",  OP_ARITHMETIC , SIMD2 | DIVU ,    DEST, REG1,      REG2 },
+    {   "mulh2",  OP_ARITHMETIC , SIMD2 | MULH ,    DEST, REG1,      REG2 },
+    {   "rem2",   OP_ARITHMETIC , SIMD2 | REM  ,    DEST, REG1,      REG2 },
+    {   "mulhu2", OP_ARITHMETIC , SIMD2 | MULHU,    DEST, REG1,      REG2 },
+    {   "remu2",  OP_ARITHMETIC , SIMD2 | REMU ,    DEST, REG1,      REG2 },
+    {   "fadd2",  OP_ARITHMETIC , SIMD2 | FADD ,    DEST, REG1,      REG2 },
+    {   "fsub2",  OP_ARITHMETIC , SIMD2 | FSUB ,    DEST, REG1,      REG2 },
+    {   "fmul2",  OP_ARITHMETIC , SIMD2 | FMUL ,    DEST, REG1,      REG2 },
+    {   "fdiv2",  OP_ARITHMETIC , SIMD2 | FDIV ,    DEST, REG1,      REG2 },
+    {   "fcmp2",  OP_ARITHMETIC , SIMD2 | FCMP ,    DEST, REG1,      REG2 },
+    {   "ftoi2",  OP_ARITHMETIC , SIMD2 | FTOI ,    DEST, REG1,      REG2 },
+    {   "addi2",  OP_ARITHMETIC , SIMD2 | ADD  ,    DEST, REG1, LARGE_IMM },
+
+    {   "and4",   OP_ARITHMETIC , SIMD4 | AND  ,    DEST, REG1,      REG2 },
+    {   "or4",    OP_ARITHMETIC , SIMD4 | OR   ,    DEST, REG1,      REG2 },
+    {   "xor4",   OP_ARITHMETIC , SIMD4 | XOR  ,    DEST, REG1,      REG2 },
+    {   "sll4",   OP_ARITHMETIC , SIMD4 | SLL  ,    DEST, REG1,      REG2 },
+    {   "srl4",   OP_ARITHMETIC , SIMD4 | SRL  ,    DEST, REG1,      REG2 },
+    {   "sra4",   OP_ARITHMETIC , SIMD4 | SRA  ,    DEST, REG1,      REG2 },
+    {   "add4",   OP_ARITHMETIC , SIMD4 | ADD  ,    DEST, REG1,      REG2 },
+    {   "sub4",   OP_ARITHMETIC , SIMD4 | SUB  ,    DEST, REG1,      REG2 },
+    {   "mul4",   OP_ARITHMETIC , SIMD4 | MUL  ,    DEST, REG1,      REG2 },
+    {   "div4",   OP_ARITHMETIC , SIMD4 | DIV  ,    DEST, REG1,      REG2 },
+    {   "cmp4",   OP_ARITHMETIC , SIMD4 | CMP  ,    DEST, REG1,      REG2 },
+    {   "itof4",  OP_ARITHMETIC , SIMD4 | ITOF ,    DEST, REG1,      REG2 },
+    {   "mulu4",  OP_ARITHMETIC , SIMD4 | MULU ,    DEST, REG1,      REG2 },
+    {   "divu4",  OP_ARITHMETIC , SIMD4 | DIVU ,    DEST, REG1,      REG2 },
+    {   "mulh4",  OP_ARITHMETIC , SIMD4 | MULH ,    DEST, REG1,      REG2 },
+    {   "rem4",   OP_ARITHMETIC , SIMD4 | REM  ,    DEST, REG1,      REG2 },
+    {   "mulhu4", OP_ARITHMETIC , SIMD4 | MULHU,    DEST, REG1,      REG2 },
+    {   "remu4",  OP_ARITHMETIC , SIMD4 | REMU ,    DEST, REG1,      REG2 },
+    {   "fadd4",  OP_ARITHMETIC , SIMD4 | FADD ,    DEST, REG1,      REG2 },
+    {   "fsub4",  OP_ARITHMETIC , SIMD4 | FSUB ,    DEST, REG1,      REG2 },
+    {   "fmul4",  OP_ARITHMETIC , SIMD4 | FMUL ,    DEST, REG1,      REG2 },
+    {   "fdiv4",  OP_ARITHMETIC , SIMD4 | FDIV ,    DEST, REG1,      REG2 },
+    {   "fcmp4",  OP_ARITHMETIC , SIMD4 | FCMP ,    DEST, REG1,      REG2 },
+    {   "ftoi4",  OP_ARITHMETIC , SIMD4 | FTOI ,    DEST, REG1,      REG2 },
+    {   "addi4",  OP_ARITHMETIC , SIMD4 | ADD  ,    DEST, REG1, LARGE_IMM },
 
     {     "lb",  OP_GROUP_MEMORY, LB   ,    DEST, REG1,       IMM },
     {     "lh",  OP_GROUP_MEMORY, LH   ,    DEST, REG1,       IMM },
@@ -104,13 +156,13 @@ single_step_result_t single_step(gpu_context_t *ctx, uint32_t *code, uint8_t *me
     uint8_t rd = (instruction >> 26) & 0xF;
     uint8_t rs1 = (instruction >> 22) & 0xF;
     uint8_t rs2 = (instruction >> 8) & 0xF;
-    uint8_t simd = (instruction << 20) & 0x3;
+    uint8_t simd = (instruction >> 20) & 0x3;
     if(opgroup != 0x0) simd = 0;
     bool large_imm = (instruction & 0x1000);
 
-    uint32_t dest_list[4];
-    uint32_t rs1_list[4];
-    uint32_t rs2_list[4];
+    uint32_t dest_list[4] = {0, 0, 0, 0};
+    uint32_t rs1_list[4] = {0, 0, 0, 0};
+    uint32_t rs2_list[4] = {0, 0, 0, 0};
     uint32_t reg_count = 1;
     switch(simd) {
         case 1:

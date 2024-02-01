@@ -34,6 +34,10 @@
 #define FCMP        0x24
 #define FTOI        0x26
 
+#define SIMD1       0x000
+#define SIMD2       0x100
+#define SIMD4       0x100
+
 #define LB          0x00
 #define LH          0x10
 #define LW          0x20

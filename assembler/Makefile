@@ -22,7 +22,7 @@ sapphire-as: $(as_OBJ)
 	@$(LD) $(LFLAGS) -o sapphire-as $(as_OBJ)
 
 sapphire-debugger: $(debugger_OBJ)
-	@$(LD) $(LFLAGS) -o sapphire-debugger $(as_OBJ)
+	@$(LD) $(LFLAGS) -o sapphire-debugger $(debugger_OBJ)
 
 clean:
 	@rm -f $(OBJ_DIR)/*.o sapphire-as sapphire-debugger

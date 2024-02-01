@@ -355,6 +355,7 @@ int main(int argc, char *argv[]) {
             for(int i = 0; i < token; i++) {
                 memcpy(tokens[i], tokens[i+1], strlen(tokens[i+1]) + 1);
             }
+            tokens[token][0] = '\0';
         }
 
         int ins = 0;
@@ -479,7 +480,7 @@ int main(int argc, char *argv[]) {
             exit(-__LINE__);
         }
 
-        printf("Backpatch %d(%s): %d\n", bp->address, bp->label, relativeAddress);
+        //printf("Backpatch %d(%s): %d\n", bp->address, bp->label, relativeAddress);
 
         res |= ((uint16_t)(relativeAddress) & 0xFF);
         res |= (((uint16_t)(relativeAddress) >> 8) & 0xFF) << 12;

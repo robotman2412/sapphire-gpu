@@ -5,3 +5,6 @@
 **/__pycache__
 sapphire-as
 sapphire-debugger
+*.bin
+*.hex
+*.debug
