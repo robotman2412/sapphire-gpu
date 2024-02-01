@@ -105,6 +105,7 @@ single_step_result_t single_step(gpu_context_t *ctx, uint32_t *code, uint8_t *me
     uint8_t rs1 = (instruction >> 22) & 0xF;
     uint8_t rs2 = (instruction >> 8) & 0xF;
     uint8_t simd = (instruction << 20) & 0x3;
+    if(opgroup != 0x0) simd = 0;
     bool large_imm = (instruction & 0x1000);
 
     uint32_t dest_list[4];
