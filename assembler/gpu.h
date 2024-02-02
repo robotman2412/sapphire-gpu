@@ -35,7 +35,7 @@
 #define FTOI        0x26
 
 #define SIMD1       0x000
-#define SIMD2       0x100
+#define SIMD2       0x080
 #define SIMD4       0x100
 
 #define LB          0x00
@@ -61,8 +61,7 @@
 #define REG2        0x04
 #define IMM         0x08
 #define LARGE_IMM   0x10
-#define MEMORY      0x20
-#define LABEL       0x40
+#define LABEL       0x20
 
 typedef struct {
     char *mnemonic;
@@ -97,6 +96,8 @@ uint32_t encode_instruction(uint32_t opgroup, uint32_t opcode,
                             bool large_imm,
                             uint32_t dest, uint32_t reg1,
                             uint32_t reg2, uint32_t imm);
+
+bool disasm_instruction(uint32_t instruction, uint32_t pc, char *s);
 
 #define MAX_LINE_LENGTH (16*1024)
 struct debug_symbol {
