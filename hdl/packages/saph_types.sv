@@ -1,5 +1,5 @@
 
-// Copyright © 2024, Julian Scheffers, see LICENSE for more information
+// Copyright © 2024, Julian Scheffers and Jesús Sanz del Rey, see LICENSE for more information
 
 `timescale 1ns/1ps
 
@@ -9,11 +9,21 @@ package saph_types;
 // Import float types.
 `ifdef usef64
 typedef svfloat::float64 float;
-typedef svfloat::float32 half;
 `else
 typedef svfloat::float32 float;
-typedef svfloat::float16 half;
 `endif
+// Defining a function doesn't work, so I used a wrapper.
+`define fconst(val) svfloat::ffunc#(float)::from_real(val)
+
+// Rasterizer shape type: Line.
+`define SAPH_SHAPE_LINE 2'b00
+// Rasterizer shape type: Triangle.
+`define SAPH_SHAPE_TRI  2'b01
+// Rasterizer shape type: Rectangle.
+`define SAPH_SHAPE_RECT 2'b10
+
+// Pixel position.
+typedef bit signed[15:0] pixpos;
 
 // 24-bit ARGB color.
 typedef struct packed {
@@ -56,4 +66,16 @@ typedef struct packed {
     // Vertex color.
     color vcol;
 } vertex;
+
+// Rasterized pixel information.
+typedef struct packed {
+    // On-screen position.
+    pixpos x, y;
+    // Depth.
+    float z;
+    // Texture position.
+    float u, v;
+    // Tint color.
+    color col;
+} pixel;
 endpackage
