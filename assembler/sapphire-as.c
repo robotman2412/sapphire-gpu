@@ -350,7 +350,7 @@ int main(int argc, char *argv[]) {
             labels[labelCount].address = instructionCount;
             labels[labelCount].name = (char *)malloc(sizeof(uint8_t) * (strlen(tokens[0])-1));
             memcpy(labels[labelCount++].name, tokens[0], strlen(tokens[0])-1);
-            if(token == 0) continue;
+            if(token == 0 || tokens[1][0] == '\0') continue;
 
             for(int i = 0; i < token; i++) {
                 memcpy(tokens[i], tokens[i+1], strlen(tokens[i+1]) + 1);
@@ -444,7 +444,7 @@ int main(int argc, char *argv[]) {
         backpatch_t *bp = &backpatches[i];
         int labelIndex = -1;
         for(int j = 0; j < labelCount; j++) {
-            if(!strcmp(bp->label, labels[i].name)) {
+            if(!strcmp(bp->label, labels[j].name)) {
                 labelIndex = j;
                 break;
             }

@@ -84,8 +84,8 @@ extern instruction_t instructions[];
 #define REG2_MASK 0xF
 #define OPCODE0_SHIFT 13
 #define OPCODE0_MASK 0x1FF
-#define OPCODE1_SHIFT 16
-#define OPCODE1_MASK 0x3F
+#define OPCODE1_SHIFT 17
+#define OPCODE1_MASK 0x7
 #define OPCODE2_SHIFT 20
 #define OPCODE2_MASK 0x3
 #define OPCODE3_SHIFT 13

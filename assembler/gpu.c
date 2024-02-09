@@ -30,6 +30,7 @@ instruction_t instructions[] = {
     {   "fcmp",  OP_ARITHMETIC  , SIMD1 | FCMP ,    DEST, REG1,      REG2 },
     {   "ftoi",  OP_ARITHMETIC  , SIMD1 | FTOI ,    DEST, REG1,      REG2 },
     {   "addi",  OP_ARITHMETIC  , SIMD1 | ADD  ,    DEST, REG1, LARGE_IMM },
+    {   "ori",   OP_ARITHMETIC  , SIMD1 | OR   ,    DEST, REG1, LARGE_IMM },
 
     {   "and2",   OP_ARITHMETIC , SIMD2 | AND  ,    DEST, REG1,      REG2 },
     {   "or2",    OP_ARITHMETIC , SIMD2 | OR   ,    DEST, REG1,      REG2 },
@@ -365,6 +366,9 @@ single_step_result_t single_step(gpu_context_t *ctx, uint32_t *code, uint8_t *me
                 uint32_t arithOp2 = (large_imm) ? arithImmS : rs2_data[i];
                 float arithfOp1 = *((float *)&arithOp1);
                 float arithfOp2 = *((float *)&arithOp2);
+                if(arithOp <= 0x5 && large_imm) {
+                    arithOp2 = arithImm;
+                }
 
                 switch(arithOp) {
                     case AND: ctx->regs[dest_list[i]] = arithOp1 & arithOp2; break;
@@ -377,7 +381,14 @@ single_step_result_t single_step(gpu_context_t *ctx, uint32_t *code, uint8_t *me
                     case SUB: ctx->regs[dest_list[i]] = arithOp1 - arithOp2; break;
                     case MUL: ctx->regs[dest_list[i]] = (uint32_t)((int64_t)(int32_t)arithOp1 * (int64_t)(int32_t)arithOp2); break;
                     case DIV: ctx->regs[dest_list[i]] = (uint32_t)((int32_t)arithOp1 / (int32_t)arithOp2); break;
-                    case CMP: ctx->regs[dest_list[i]] = (arithOp1 < arithOp2) ? 1 : 0; break; //TODO
+                    case CMP:
+                        {
+                            switch(arithImm) {
+                                case 0: ctx->regs[dest_list[i]] = (arithOp1 == arithOp2) ? 1 : 0; break;
+                                default: ctx->regs[dest_list[i]] = (arithOp1 < arithOp2) ? 1 : 0; break;
+                            }
+
+                        }break; //TODO
                     case ITOF:
                         {
                             float value = (float)arithOp1;

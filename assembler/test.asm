@@ -1,3 +1,5 @@
+#include "tests/test.h"
+
 addi r0, r1, 400
 addi r1, r1, 600
 addi r2, r2, 800
@@ -7,4 +9,11 @@ jmp test_label
 
 add r3, r0, r2
 
-test_label: end
+test_label:
+
+TEST_IMM_OP(1, addi, 0x00000, 0x002, 0x00000, 0x001, 0x001)
+xor r0, r0, r0
+addi r0, r0, 1
+
+fail:
+end
