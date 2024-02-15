@@ -6,8 +6,8 @@
 
 
 
-// Internal floating-point computation unit.
-module saph_fpu_internal#(
+// Single floating-point computation unit.
+module saph_fpu_single#(
     // Enable adder / subtractor.
     parameter   bit     has_add     = 1,
     // Enable multiplier.
@@ -34,8 +34,9 @@ module saph_fpu_internal#(
     logic[1:0]  r_mode_0;
     logic[1:0]  r_mode_1;
     
-    assign port.d_ready = 1;
-    assign port.q_trig  = port.d_trig;
+    assign port.d_ready     = 1;
+    assign port.q_trig      = port.d_trig;
+    assign port.has_modes   = {has_div, has_mul, has_add, has_add};
     
     generate
         if (port.latency != (plr_pre + plr_post)) begin

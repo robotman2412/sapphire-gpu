@@ -9,7 +9,7 @@
 // Floating-point unit interface.
 interface saph_fpi#(
     // Latency from d_trig to result valid.
-    parameter   integer latency = 0
+    parameter   integer     latency     = 0
 );
     // GPU -> FPU: Trigger FPU computation.
     logic       d_trig;
@@ -26,9 +26,12 @@ interface saph_fpi#(
     // FPU -> GPU: Computation result.
     float       q_res;
     
+    // Supported FPU ops, should be a constant.
+    logic[3:0]  has_modes;
+    
     // Signals from GPU perspective.
-    modport GPU (output d_trig, d_lhs, d_rhs, d_mode, input  d_ready, q_res);
+    modport GPU (output d_trig, d_lhs, d_rhs, d_mode, input  d_ready, q_res, has_modes);
     // Signals from FPU perspective.
-    modport FPU (input  d_trig, d_lhs, d_rhs, d_mode, output d_ready, q_res);
+    modport FPU (input  d_trig, d_lhs, d_rhs, d_mode, output d_ready, q_res, has_modes);
 endinterface
 

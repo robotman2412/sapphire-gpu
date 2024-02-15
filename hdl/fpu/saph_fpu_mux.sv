@@ -23,6 +23,10 @@ module saph_fpu_mux#(
 );
     genvar x;
     
+    if (gpu[0].latency != fpu.latency) begin
+        $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu[0].latency, fpu.latency);
+    end
+    
     // GPU requesting to use FPU.
     local[gpus-1:0] req;
     // Current GPU's turn.
@@ -31,13 +35,10 @@ module saph_fpu_mux#(
     logic[gpus-1:0] next;
     // Request arbitration.
     generate
-        if (gpu[0].latency != fpu.latency) begin
-            $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu[0].latency, gpu.latency);
-        end
-        
         for (x = 0; x < gpus; x = x + 1) begin
-            assign req[x]         = gpu[x].d_trig;
-            assign gpu[x].d_ready = next[x];
+            assign req[x]           = gpu[x].d_trig;
+            assign gpu[x].d_ready   = next[x];
+            assign gpu[x].has_modes = fpu.has_modes;
         end
         assign next[0] = req[0] && fpu.d_ready;
         for (x = 1; x < gpus; x = x + 1) begin
@@ -51,15 +52,15 @@ module saph_fpu_mux#(
         end
     end
     
-    // Connection logic.
+    // Connection request logic.
     float       lhs_mask[gpus], rhs_mask[gpus];
     logic[1:0]  mode_mask[gpus];
     generate
         for (x = 0; x < gpus; x = x + 1) begin
-            assign gpu[x].q_trig    = cur[x] && fpu.q_trig;
+            assign gpu[x].q_trig    = next[x] && fpu.q_trig;
             assign gpu[x].q_res     = fpu.q_res;
-            assign mode_mask[x]     = next[x] * gpu[x].d_lhs;
-            assign mode_mask[x]     = next[x] * gpu[x].d_rhs;
+            assign lhs_mask[x]      = next[x] * gpu[x].d_lhs;
+            assign rhs_mask[x]      = next[x] * gpu[x].d_rhs;
             assign mode_mask[x]     = next[x] * gpu[x].d_mode;
         end
     endgenerate
@@ -75,5 +76,4 @@ module saph_fpu_mux#(
             fpu.d_mode  = mode_mask;
         end
     end
-    
 endmodule
