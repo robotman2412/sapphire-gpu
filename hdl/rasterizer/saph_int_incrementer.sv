@@ -6,8 +6,10 @@
 
 
 
-// Multi-float incrementing unit.
-module saph_float_incrementer#(
+// Multi-int incrementing unit.
+module saph_int_incrementer#(
+    // Width of the integers.
+    parameter   integer width   = 8,
     // Number of floats to compute.
     parameter   integer numbers = 2,
     // Number of floating-point adders to use.
@@ -29,18 +31,18 @@ module saph_float_incrementer#(
     output logic    ready,
     
     // Initial state.
-    input  float    init[numbers],
+    input  logic[width-1:0] init[numbers],
     // Increment values.
-    input  float    inc[numbers],
+    input  logic[width-1:0] inc[numbers],
     // Current state.
-    output float    cur[numbers]
+    output logic[width-1:0] cur[numbers]
 );
     genvar x;
     
     // Increment buffer.
-    float inc_reg[numbers];
+    logic[width-1:0] inc_reg[numbers];
     // Addition result.
-    float res[adders];
+    logic[width-1:0] res[adders];
     
     generate
         // For multicycle: Currently busy counting.
@@ -122,7 +124,7 @@ module saph_float_incrementer#(
         
         // Adder array.
         for (x = 0; x < adders; x = x + 1) begin
-            svfloat_add#(float) fadd(clk, inc_reg[x+bank*adders], cur[x+bank*adders], res[x]);
+            assign res[x] = inc_reg[x+bank*adders] + cur[x+bank*adders];
         end
     endgenerate
 endmodule

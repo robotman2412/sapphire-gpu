@@ -7,6 +7,15 @@
 import saph_types::*;
 /* verilator lint_on IMPORTSTAR */
 
+// FPU operation: Add.
+`define SAPH_FPU_FADD 2'b00
+// FPU operation: Subtract.
+`define SAPH_FPU_FSUB 2'b01
+// FPU operation: Multiply.
+`define SAPH_FPU_FMUL 2'b10
+// FPU operation: Divide.
+`define SAPH_FPU_FDIV 2'b11
+
 // Pixel type: ARGB.
 // All channel formats are used.
 `define SAPH_PIXTYPE_ARGB 4'b00
