@@ -15,6 +15,15 @@ typedef svfloat::float32 float;
 // Defining a function doesn't work, so I used a wrapper.
 `define fconst(val) svfloat::ffunc#(float)::from_real(val)
 
+// FPU mode: Add.
+`define SAPH_FPU_ADD 2'b00
+// FPU mode: Subtract.
+`define SAPH_FPU_SUB 2'b01
+// FPU mode: Multiply.
+`define SAPH_FPU_MUL 2'b10
+// FPU mode: Divide.
+`define SAPH_FPU_DIV 2'b11
+
 // Rasterizer shape type: Line.
 `define SAPH_SHAPE_LINE 2'b00
 // Rasterizer shape type: Triangle.

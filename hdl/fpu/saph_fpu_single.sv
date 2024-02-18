@@ -28,6 +28,8 @@ module saph_fpu_single#(
     // FPU interface.
     saph_fpi.FPU    port
 );
+    // FPU latency.
+    localparam  integer latency = plr_pre + plr_post;
     // Computational unit results.
     float       add_res, mul_res, div_res;
     // Mode select registers.
@@ -38,11 +40,13 @@ module saph_fpu_single#(
     assign port.q_trig      = port.d_trig;
     assign port.has_modes   = {has_div, has_mul, has_add, has_add};
     
-    generate
-        if (port.latency != (plr_pre + plr_post)) begin
-            $error("Invalid latency setting (expected %d; got %d)", plr_pre + plr_post, port.latency);
+    initial begin
+        if (port.latency != latency) begin
+            $error("Invalid latency setting (expected %d; got %d)", latency, port.latency);
         end
-        
+    end
+    
+    generate
         // Pipeline registers.
         if (plr_pre) begin: with_plr_pre
             always @(posedge clk) r_mode_0 <= port.d_mode;
@@ -50,9 +54,9 @@ module saph_fpu_single#(
             assign r_mode_0 = port.d_mode;
         end
         if (plr_post) begin: with_plr_post
-            always @(posedge clk) r_mode_1 <= port.d_mode;
+            always @(posedge clk) r_mode_1 <= r_mode_0;
         end else begin: without_plr_post
-            assign r_mode_1 = port.d_mode;
+            assign r_mode_1 = r_mode_0;
         end
         
         // Floating-point adder.
@@ -65,14 +69,14 @@ module saph_fpu_single#(
         end
         
         // Floating-point multipler.
-        if (has_sub) begin: with_fmul
+        if (has_mul) begin: with_fmul
             svfloat_mul#(float, plr_pre, plr_post) fmul(clk, port.d_lhs, port.d_rhs, mul_res);
         end else begin: without_fmul
             assign mul_res = 'bx;
         end
         
         // Floating-point divider.
-        if (has_sub) begin: with_fdiv
+        if (has_div) begin: with_fdiv
             svfloat_div#(float, plr_pre, plr_post) fdiv(clk, port.d_lhs, port.d_rhs, div_res);
         end else begin: without_fdiv
             assign div_res = 'bx;

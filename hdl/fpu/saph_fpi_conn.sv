@@ -21,6 +21,7 @@ module saph_fpi_conn(
     assign fpu.d_mode       = gpu.d_mode;
 
     assign gpu.d_ready      = fpu.d_ready;
+    assign gpu.q_trig       = fpu.q_trig;
     assign gpu.q_res        = fpu.q_res;
     assign gpu.has_modes    = fpu.has_modes;
 endmodule

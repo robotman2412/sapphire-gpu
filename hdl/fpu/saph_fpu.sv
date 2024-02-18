@@ -32,8 +32,8 @@ module saph_fpu#(
     saph_fpi.FPU    port[ports]
 );
     genvar x, y;
-    localparam latency  = plr_pre + plr_post;
-    localparam n_fpu    = n_add + n_mul + n_div;
+    localparam integer  latency = plr_pre + plr_post;
+    localparam integer  n_fpu   = n_add + n_mul + n_div;
     
     // FPU interfaces.
     saph_fpi#(latency) grid[ports*n_fpu]();
@@ -44,16 +44,16 @@ module saph_fpu#(
         for (x = 0; x < n_fpu; x = x + 1) begin
             saph_fpi#(latency) col[ports]();
             for (y = 0; y < ports; y = y + 1) begin
-                saph_fpi_conn conn(grid[x+n_fpu*y], col);
+                saph_fpi_conn conn(grid[x+n_fpu*y], col[y]);
             end
             saph_fpu_mux#(ports) mux(clk, rst, col, out[x]);
         end
         for (y = 0; y < ports; y = y + 1) begin
             saph_fpi#(latency) row[n_fpu]();
             for (x = 0; x < n_fpu; x = x + 1) begin
-                saph_fpi_conn conn(row, grid[x+n_fpu*y]);
+                saph_fpi_conn conn(row[x], grid[x+n_fpu*y]);
             end
-            saph_fpu_demux#(ports) dmx(clk, rst, ports[y], row);
+            saph_fpu_demux#(n_fpu) dmx(clk, rst, port[y], row);
         end
     endgenerate
     
@@ -63,10 +63,10 @@ module saph_fpu#(
             saph_fpu_single#(1, 0, 0, plr_pre, plr_post) add_inst(clk, rst, out[x]);
         end
         for (x = 0; x < n_mul; x = x + 1) begin
-            saph_fpu_single#(1, 0, 0, plr_pre, plr_post) mul_inst(clk, rst, out[x+n_add]);
+            saph_fpu_single#(0, 1, 0, plr_pre, plr_post) mul_inst(clk, rst, out[x+n_add]);
         end
         for (x = 0; x < n_div; x = x + 1) begin
-            saph_fpu_single#(1, 0, 0, plr_pre, plr_post) div_inst(clk, rst, out[x+n_add+n_mul]);
+            saph_fpu_single#(0, 0, 1, plr_pre, plr_post) div_inst(clk, rst, out[x+n_add+n_mul]);
         end
     endgenerate
 endmodule

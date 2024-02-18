@@ -22,33 +22,50 @@ module saph_fpu_demux#(
     saph_fpi.GPU    fpu[fpus]
 );
     genvar x;
+    parameter latency = gpu.latency;
     
-    if (gpu.latency != fpu[0].latency) begin
-        $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu.latency, fpu[0].latency);
+    initial begin
+        if (gpu.latency != fpu[0].latency) begin
+            $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu.latency, fpu[0].latency);
+        end
     end
     
     // Mode availability logic.
+    logic[3:0] has_modes_mask[fpus];
+    generate
+        for (x = 0; x < fpus; x = x + 1) begin
+            assign has_modes_mask[x] = fpu[x].has_modes;
+        end
+    endgenerate
     always @(*) begin
         integer i;
         gpu.has_modes = 0;
         for (i = 0; i < fpus; i = i + 1) begin
-            gpu.has_modes |= fpu[i].has_modes;
+            gpu.has_modes |= has_modes_mask[i];
         end
     end
     
     // Request logic.
+    /* verilator lint_off UNOPTFLAT */
     logic[fpus-1:0] ready;
+    logic[fpus-1:0] has_mode;
     logic[fpus-1:0] trig;
+    assign gpu.d_ready = (ready & has_mode) != 0;
     generate
         for (x = 0; x < fpus; x = x + 1) begin
-            assign ready[x]     = fpu[x].d_ready && fpu[x].has_modes[gpu.d_mode];
-            assign fpu[x].trig  = trig[x];
+            assign ready[x]         = fpu[x].d_ready;
+            assign has_mode[x]      = fpu[x].has_modes[gpu.d_mode];
+            assign fpu[x].d_trig    = trig[x];
+            assign fpu[x].d_lhs     = gpu.d_lhs;
+            assign fpu[x].d_rhs     = gpu.d_rhs;
+            assign fpu[x].d_mode    = gpu.d_mode;
         end
-        assign trig[0] = ready[0] && gpu.d_trig;
+        assign trig[0] = has_mode[0] && gpu.d_trig;
         for (x = 1; x < fpus; x = x + 1) begin
-            assign trig[x] = ready[x] && ready[x-1:0] == 0 && gpu.d_trig;
+            assign trig[x] = has_mode[x] && (ready[x-1:0] & has_mode[x-1:0]) == 0 && gpu.d_trig;
         end
     endgenerate
+    /* verilator lint_on UNOPTFLAT */
     
     // Waiting state logic.
     logic[fpus-1:0] q_trig_mask;
@@ -63,28 +80,30 @@ module saph_fpu_demux#(
         if (rst) begin
             wait_reg <= 0;
         end else if (!waiting) begin
-            wait_reg <= trig;
+            wait_reg <= trig & ready;
         end
     end
     
     // Pipeline timing logic.
-    logic[fpus-1:0] plr[gpu.latency+2];
+    /* verilator lint_off UNOPTFLAT */
+    logic[fpus-1:0] plr[latency+2];
     generate
-        assign plr[0] = plr[1];
-        assign plr[gpu.latency+1] = trig;
-        for (x = 0; x < gpu.latency - 1; x = x + 1) begin
+        assign plr[0]           = plr[1];
+        assign plr[latency+1]   = trig & ready;
+        for (x = 1; x < latency; x = x + 1) begin
             always @(posedge clk) begin
-                plr[x+1] <= plr[x+2];
+                plr[x] <= plr[x+1];
             end
         end
-        if (gpu.latency) begin
+        if (latency) begin
             always @(posedge clk) begin
                 if (!waiting) begin
-                    plr[gpu.latency] <= plr[gpu.latency + 1];
+                    plr[latency] <= plr[latency + 1];
                 end
             end
         end
     endgenerate
+    /* verilator lint_on UNOPTFLAT */
     
     // Response logic.
     float res_mask[fpus];

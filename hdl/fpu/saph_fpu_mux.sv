@@ -23,12 +23,14 @@ module saph_fpu_mux#(
 );
     genvar x;
     
-    if (gpu[0].latency != fpu.latency) begin
-        $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu[0].latency, fpu.latency);
+    initial begin
+        if (gpu.latency != fpu.latency) begin
+            $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu.latency, fpu.latency);
+        end
     end
     
     // GPU requesting to use FPU.
-    local[gpus-1:0] req;
+    logic[gpus-1:0] req;
     // Current GPU's turn.
     logic[gpus-1:0] cur;
     // Next GPU's turn.
@@ -37,12 +39,13 @@ module saph_fpu_mux#(
     generate
         for (x = 0; x < gpus; x = x + 1) begin
             assign req[x]           = gpu[x].d_trig;
-            assign gpu[x].d_ready   = next[x];
+            assign next[x]          = gpu[x].d_trig && gpu[x].d_ready;
             assign gpu[x].has_modes = fpu.has_modes;
         end
+        assign gpu[0].d_ready   = fpu.d_ready;
         assign next[0] = req[0] && fpu.d_ready;
         for (x = 1; x < gpus; x = x + 1) begin
-            assign next[x]        = req[x] && req[x-1:0] == 0 && fpu.d_ready;
+            assign gpu[x].d_ready   = req[x-1:0] == 0 && fpu.d_ready;
         end
     endgenerate
     
@@ -64,16 +67,16 @@ module saph_fpu_mux#(
             assign mode_mask[x]     = next[x] * gpu[x].d_mode;
         end
     endgenerate
-    assign fpu.d_trig = next;
+    assign fpu.d_trig = next != 0;
     always @(*) begin
         integer i;
         fpu.d_lhs   = 0;
         fpu.d_rhs   = 0;
         fpu.d_mode  = 0;
         for (i = 0; i < gpus; i = i + 1) begin
-            fpu.d_lhs   = lhs_mask;
-            fpu.d_rhs   = rhs_mask;
-            fpu.d_mode  = mode_mask;
+            fpu.d_lhs   |= lhs_mask[i];
+            fpu.d_rhs   |= rhs_mask[i];
+            fpu.d_mode  |= mode_mask[i];
         end
     end
 endmodule

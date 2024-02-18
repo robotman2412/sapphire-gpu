@@ -30,8 +30,8 @@ interface saph_fpi#(
     logic[3:0]  has_modes;
     
     // Signals from GPU perspective.
-    modport GPU (output d_trig, d_lhs, d_rhs, d_mode, input  d_ready, q_res, has_modes);
+    modport GPU (output d_trig, d_lhs, d_rhs, d_mode, input  d_ready, q_trig, q_res, has_modes);
     // Signals from FPU perspective.
-    modport FPU (input  d_trig, d_lhs, d_rhs, d_mode, output d_ready, q_res, has_modes);
+    modport FPU (input  d_trig, d_lhs, d_rhs, d_mode, output d_ready, q_trig, q_res, has_modes);
 endinterface
 
