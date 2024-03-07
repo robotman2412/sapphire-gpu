@@ -11,20 +11,20 @@ HDL   = ../../sv-float/packages/svfloat.sv \
 
 all: wave
 
-build: $(HDL)
-	mkdir -p obj_dir
-	verilator -Wall -Wno-fatal -Werror-PINNOCONNECT -Werror-IMPLICIT -Wno-DECLFILENAME -Wno-VARHIDDEN -Wno-WIDTH -Wno-UNUSED \
-		--trace --trace-fst --trace-depth 20 --trace-max-array 256 --trace-max-width 128 \
-		-sv --cc --exe --build \
-		-I../../hdl/include \
-		--top-module top \
-		-j $(shell nproc) bench.cpp $(HDL) -o sim
-
-clean:
-	rm -rf obj_dir
+build:
+	echo "Compiling"
+	out=`xvlog -nolog -i ../../hdl/include -sv $(HDL)` || echo "$$out"
+	echo "Elaborating"
+	out=`xelab -nolog --incr -top bench -snapshot sim` || echo "$$out"
+	rm -f xvlog.pb xelab.pb
 
 run: build
-	./obj_dir/sim
+	echo "Running"
+	out=`xsim -nolog sim -t sim.tcl` || echo "$$out"
+	rm -f xsim.jou sim.wdb
 
 wave: run
-	gtkwave obj_dir/sim.fst
+	gtkwave xsim.dir/sim.vcd > /dev/null
+
+clean:
+	rm -rf xsim.dir

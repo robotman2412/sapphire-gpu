@@ -38,10 +38,13 @@ module saph_float_incrementer#(
     genvar x;
     
     initial begin
-        if (fpi.latency != latency) begin
-            $error("Latency mismatch: GPU expects %d, FPU expects %d", latency, fpi.latency);
+        if (fpi[0].latency != latency) begin
+            $error("Latency mismatch: GPU expects %d, FPU expects %d", latency, fpi[0].latency);
         end
     end
+    
+    // Additions in progress.
+    logic[numbers-1:0]  busy, r_busy, we;
     
     // Increment values.
     float               r_inc[numbers];
@@ -54,10 +57,9 @@ module saph_float_incrementer#(
         end else if (latch) begin
             r_inc <= inc;
         end
+        r_busy[0] <= fpi[0].d_trig && !fpi[0].d_ready && !rst;
+        r_busy[1] <= fpi[1].d_trig && !fpi[1].d_ready && !rst;
     end
-    
-    // Additions in progress.
-    logic[numbers-1:0]  busy, r_busy, we;
     
     generate
         for (x = 0; x < numbers; x = x + 1) begin
@@ -68,8 +70,8 @@ module saph_float_incrementer#(
             assign fpi[x].d_mode = `SAPH_FPU_FADD;
             
             always @(posedge clk) begin
-                $display(x, fpi[x].d_trig, fpi[x].d_ready, rst, fpi[x].d_trig && !fpi[x].d_ready && !rst);
-                r_busy[x] <= fpi[x].d_trig && !fpi[x].d_ready && !rst;
+                // $display(x, fpi[x].d_trig, fpi[x].d_ready, rst, fpi[x].d_trig && !fpi[x].d_ready && !rst);
+                // r_busy[x] <= fpi[x].d_trig && !fpi[x].d_ready && !rst;
             end
             assign busy[x] = fpi[x].d_trig && !fpi[x].d_ready;
             

@@ -24,8 +24,8 @@ module saph_fpu_mux#(
     genvar x;
     
     initial begin
-        if (gpu.latency != fpu.latency) begin
-            $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu.latency, fpu.latency);
+        if (gpu[0].latency != fpu.latency) begin
+            $error("FPU latency mismatch: GPU expects %d, FPU expects %d", gpu[0].latency, fpu.latency);
         end
     end
     

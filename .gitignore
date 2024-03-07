@@ -3,3 +3,4 @@
 .vscode
 **/fpga_proj
 **/__pycache__
+**/xsim.dir
