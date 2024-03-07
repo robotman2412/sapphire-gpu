@@ -9,7 +9,9 @@
 // Multi-float incrementing unit.
 module saph_float_incrementer#(
     // Number of floats to compute.
-    parameter   integer numbers = 2
+    parameter   integer numbers = 2,
+    // Floating-point interface latency.
+    parameter   integer latency = 2
 )(
     // Core clock.
     input  logic                clk,
@@ -34,18 +36,57 @@ module saph_float_incrementer#(
     output float                cur[numbers]
 );
     genvar x;
-    localparam integer latency = fpi.latency;
+    
+    initial begin
+        if (fpi.latency != latency) begin
+            $error("Latency mismatch: GPU expects %d, FPU expects %d", latency, fpi.latency);
+        end
+    end
+    
+    // Increment values.
+    float               r_inc[numbers];
+    always @(posedge clk) begin
+        if (rst) begin
+            integer i;
+            for (i = 0; i < numbers; i = i + 1) begin
+                r_inc[i] <= 0;
+            end
+        end else if (latch) begin
+            r_inc <= inc;
+        end
+    end
     
     // Additions in progress.
-    logic[numbers-1:0]  busy;
+    logic[numbers-1:0]  busy, r_busy, we;
     
-    // Floating-point interface logic.
     generate
         for (x = 0; x < numbers; x = x + 1) begin
-            logic r_busy;
-            assign fpi[x].d_trig = trig || r_busy;
-            assign fpi[x].lhs    = cur[x];
+            // FP request logic.
+            assign fpi[x].d_trig = count[x] || r_busy[x];
+            assign fpi[x].d_lhs  = cur[x];
+            assign fpi[x].d_rhs  = r_inc[x];
+            assign fpi[x].d_mode = `SAPH_FPU_FADD;
+            
+            always @(posedge clk) begin
+                $display(x, fpi[x].d_trig, fpi[x].d_ready, rst, fpi[x].d_trig && !fpi[x].d_ready && !rst);
+                r_busy[x] <= fpi[x].d_trig && !fpi[x].d_ready && !rst;
+            end
+            assign busy[x] = fpi[x].d_trig && !fpi[x].d_ready;
+            
+            // FP response logic.
+            saph_plr#(1, latency) we_comp(clk, rst, fpi[x].d_trig && fpi[x].d_ready, we[x]);
+            always @(posedge clk) begin
+                if (rst) begin
+                    cur[x] <= 0;
+                end else if (latch) begin
+                    cur[x] <= init[x];
+                end else if (we[x]) begin
+                    cur[x] <= fpi[x].q_res;
+                end
+            end
         end
     endgenerate
     
+    // Ready logic.
+    saph_plr#(1, latency) rdy_comp(clk, rst || count, busy == 0, ready);
 endmodule

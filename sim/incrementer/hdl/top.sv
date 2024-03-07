@@ -19,18 +19,22 @@ module top(
     end
     
     // Initialization logic.
-    wire   latch    = cycle == 1;
-    wire   count    = cycle >= 2;
-    float  init[2];
-    assign init[0]  = `fconst(1.010);
-    assign init[1]  = `fconst(3.141);
-    float  inc[2];
-    assign inc[0]   = `fconst(0.125);
-    assign inc[1]   = `fconst(0.001);
+    wire        latch    = cycle == 1;
+    wire[1:0]   count    = cycle == 2 ? 3 : 0;
+    float       init[2];
+    assign      init[0]  = `fconst(1.010);
+    assign      init[1]  = `fconst(3.141);
+    float       inc[2];
+    assign      inc[0]   = `fconst(0.125);
+    assign      inc[1]   = `fconst(0.001);
+    
+    // The FPU.
+    saph_fpi#(2) fpi[2]();
+    saph_fpu#(2, 1, 0, 0) fpu(clk, rst, fpi);
     
     // The incrementoronatorinficator.
     float cur[2];
     logic ready;
-    saph_float_incrementer#(2, 1) calc(clk, rst, latch, count, ready, init, inc, cur);
+    saph_float_incrementer#(2) calc(clk, rst, fpi, latch, count, ready, init, inc, cur);
     
 endmodule
