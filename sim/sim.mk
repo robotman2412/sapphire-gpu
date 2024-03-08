@@ -12,16 +12,18 @@ HDL   = ../bench.sv \
 
 all: wave
 
-build:
+build: xsim.dir
+xsim.dir: $(HDL) Makefile
 	echo "Compiling"
 	out=`xvlog -nolog -i ../../hdl/include -sv $(HDL)` || echo "$$out"
 	echo "Elaborating"
-	out=`xelab -nolog --incr -top bench -snapshot sim` || echo "$$out"
+	out=`xelab -nolog --noname_unnamed_generate -top bench -snapshot sim` || echo "$$out"
 	rm -f *.pb
 
 run: build
 	echo "Running"
-	out=`xsim -nolog sim -t ../sim.tcl` || echo "$$out"
+	# out=`xsim -nolog sim -t ../sim.tcl` || echo "$$out"
+	xsim -nolog sim -R
 	rm -f *.jou *.wdb
 
 wave: run

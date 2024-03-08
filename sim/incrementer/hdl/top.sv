@@ -20,13 +20,19 @@ module top(
     
     // Initialization logic.
     wire        latch    = cycle == 1;
-    wire[1:0]   count    = cycle == 2 ? 3 : 0;
+    logic[1:0]  count;
     float       init[2];
     assign      init[0]  = `fconst(1.010);
     assign      init[1]  = `fconst(3.141);
     float       inc[2];
     assign      inc[0]   = `fconst(0.125);
     assign      inc[1]   = `fconst(0.001);
+    
+    always @(*) begin
+        count = 0;
+        if (cycle == 2) count = 3;
+        if (cycle == 6) count = 1;
+    end
     
     // The FPU.
     saph_fpi#(2) fpi[2]();

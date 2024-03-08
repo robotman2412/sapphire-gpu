@@ -25,10 +25,11 @@ module saph_plr#(
 );
     genvar x;
     generate
-        if (latency) begin
-            logic[width-1:0]    plr[latency];
+        if (latency) begin: l1
+            reg[width-1:0]    plr[latency];
+            initial plr[0] = 0;
             always @(posedge clk) begin
-                plr[0] <= rst ? 0 : q;
+                plr[0] <= rst ? 0 : d;
             end
             for (x = 1; x < latency; x = x + 1) begin
                 always @(posedge clk) begin
@@ -36,7 +37,7 @@ module saph_plr#(
                 end
             end
             assign q = plr[latency-1];
-        end else begin
+        end else begin: l0
             assign q = d;
         end
     endgenerate

@@ -57,10 +57,9 @@ module saph_float_incrementer#(
         end else if (latch) begin
             r_inc <= inc;
         end
-        r_busy[0] <= fpi[0].d_trig && !fpi[0].d_ready && !rst;
-        r_busy[1] <= fpi[1].d_trig && !fpi[1].d_ready && !rst;
     end
     
+    logic[numbers-1:0] trig;
     generate
         for (x = 0; x < numbers; x = x + 1) begin
             // FP request logic.
@@ -68,10 +67,10 @@ module saph_float_incrementer#(
             assign fpi[x].d_lhs  = cur[x];
             assign fpi[x].d_rhs  = r_inc[x];
             assign fpi[x].d_mode = `SAPH_FPU_FADD;
+            assign trig[x]       = fpi[x].d_trig;
             
             always @(posedge clk) begin
-                // $display(x, fpi[x].d_trig, fpi[x].d_ready, rst, fpi[x].d_trig && !fpi[x].d_ready && !rst);
-                // r_busy[x] <= fpi[x].d_trig && !fpi[x].d_ready && !rst;
+                r_busy[x] <= fpi[x].d_trig && !fpi[x].d_ready && !rst;
             end
             assign busy[x] = fpi[x].d_trig && !fpi[x].d_ready;
             
@@ -90,5 +89,5 @@ module saph_float_incrementer#(
     endgenerate
     
     // Ready logic.
-    saph_plr#(1, latency) rdy_comp(clk, rst || count, busy == 0, ready);
+    saph_plr#(1, latency) rdy_comp(clk, rst || busy != 0, trig != 0, ready);
 endmodule
