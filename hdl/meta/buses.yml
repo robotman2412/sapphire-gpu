@@ -1,0 +1,35 @@
+
+saph_pixreadport:
+  desc: Sapphire GPU pixel lookup port.
+  type: asymmetric_bus
+  
+  parameters:
+    latency:
+      desc:     Latency from d_trig to result valid.
+      default:  0
+  
+  controller: GPU
+  device:     MEM
+  
+  clock:
+    name: clk
+    type: ext_clock
+    edge: rising
+  
+  outputs:
+    d_trig:
+      desc: Trigger pixel lookup.
+    d_x:
+      desc: Pixel X coordinate.
+      span: 13:0
+    d_y:
+      desc: Pixel Y coordinate.
+      span: 13:0
+  
+  inputs:
+    d_ready:
+      desc: Ready to perform pixel lookup.
+    q_res:
+      desc: Retrieved pixel data.
+      type: color
+      time: $latency

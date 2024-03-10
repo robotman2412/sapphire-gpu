@@ -18,7 +18,7 @@ interface saph_pixreadport#(
     // MEM -> GPU: Ready to perform pixel lookup.
     logic       d_ready;
     
-    // FPU -> MEM: Retrieved pixel data.
+    // MEM -> GPU: Retrieved pixel data.
     color       q_res;
     
     // Signals from GPU perspective.
