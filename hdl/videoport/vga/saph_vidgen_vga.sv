@@ -128,9 +128,10 @@ module saph_vidgen_vga#(
     
     
     /* ==== VGA signal recombination ==== */
+    wire   vid_en    = sync_h_vid_en & sync_v_vid_en;
     assign vga.hsync = sync_h_sync_en;
     assign vga.vsync = sync_v_sync_en;
-    assign vga.r     = pix.q_res.r >> (8 - vga.r_width);
-    assign vga.g     = pix.q_res.g >> (8 - vga.g_width);
-    assign vga.b     = pix.q_res.b >> (8 - vga.b_width);
+    assign vga.r     = vid_en * (pix.q_res.r >> (8 - vga.r_width));
+    assign vga.g     = vid_en * (pix.q_res.g >> (8 - vga.g_width));
+    assign vga.b     = vid_en * (pix.q_res.b >> (8 - vga.b_width));
 endmodule
