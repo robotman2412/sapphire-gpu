@@ -8,9 +8,9 @@
 
 // Color channel interpolator.
 module saph_ch_interp(
-    input  logic[7:0] from,
-    input  logic[7:0] to,
-    input  logic[7:0] coeff,
+    input  wire [7:0] from,
+    input  wire [7:0] to,
+    input  wire [7:0] coeff,
     output logic[7:0] q
 );
     wire[15:0] tmp = from * 256 + (to - from) * (coeff + coeff[7]);

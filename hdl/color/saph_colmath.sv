@@ -13,9 +13,9 @@ module saph_colmath(
     // Color B.
     input  color        b,
     // Interpolation factor.
-    input  logic[7:0]   c,
+    input  wire [7:0]   c,
     // Color math mode.
-    input  logic[1:0]   mode,
+    input  wire [1:0]   mode,
     // Resulting color.
     output color        q
 );

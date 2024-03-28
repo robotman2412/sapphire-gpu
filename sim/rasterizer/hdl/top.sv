@@ -8,7 +8,7 @@
 
 module top(
     // GPU clock.
-    input  logic    clk,
+    input  wire     clk,
     // GPU has image.
     output logic    vsync
 );

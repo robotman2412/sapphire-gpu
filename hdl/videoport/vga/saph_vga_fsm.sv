@@ -12,20 +12,20 @@ module saph_vga_fsm#(
     parameter   integer width     = 9
 )(
     // VGA core clock.
-    input  logic            clk,
+    input  wire             clk,
     // Synchronous reset.
-    input  logic            rst,
+    input  wire             rst,
     // Count enable.
-    input  logic            inc,
+    input  wire             inc,
     
     // Front porch width minus one.
-    input  logic[width-1:0] fp_width,
+    input  wire [width-1:0] fp_width,
     // Video width minus one.
-    input  logic[width-1:0] vid_width,
+    input  wire [width-1:0] vid_width,
     // Back porch width minus one.
-    input  logic[width-1:0] bp_width,
+    input  wire [width-1:0] bp_width,
     // Sync width minus one.
-    input  logic[width-1:0] sync_width,
+    input  wire [width-1:0] sync_width,
     
     // Current counter value.
     output logic[width-1:0] count,

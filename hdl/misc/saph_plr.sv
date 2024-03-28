@@ -14,12 +14,12 @@ module saph_plr#(
     parameter   latency = 1
 )(
     // Pipeline clock.
-    input  logic            clk,
+    input  wire             clk,
     // Reset value to 0.
-    input  logic            rst,
+    input  wire             rst,
     
     // Input value.
-    input  logic[width-1:0] d,
+    input  wire [width-1:0] d,
     // Output value.
     output logic[width-1:0] q
 );

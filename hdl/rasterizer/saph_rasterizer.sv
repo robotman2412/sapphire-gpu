@@ -18,14 +18,14 @@ module saph_rasterizer#(
     parameter vcol_fixpt    = 1
 )(
     // Core clock.
-    input  logic        clk,
+    input  wire         clk,
     // Synchronous reset.
-    input  logic        rst,
+    input  wire         rst,
     
     // Trigger rendering of the shape.
-    input  logic        in_trig,
+    input  wire         in_trig,
     // Type of shape to render.
-    input  logic[1:0]   in_type,
+    input  wire [1:0]   in_type,
     // Shape vertices.
     input  vertex       in_shape[4],
     // Ready to accept a new shape next posedge clk.
@@ -36,6 +36,6 @@ module saph_rasterizer#(
     // Calculated pixel to render.
     output pixel        out_pixel,
     // Ready to accept a new pixel next posedge clk.
-    input  logic        out_ready
+    input  wire         out_ready
 );
 endmodule

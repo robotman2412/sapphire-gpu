@@ -9,7 +9,7 @@
 // Color unpacker.
 module saph_col_unpack(
     // Packed color.
-    input  logic[31:0]  in,
+    input  wire [31:0]  in,
     // Color format.
     input  pixfmt       format,
     // Unpacked color.

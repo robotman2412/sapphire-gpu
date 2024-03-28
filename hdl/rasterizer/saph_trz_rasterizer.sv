@@ -17,16 +17,16 @@ module saph_trz_rasterizer#(
     parameter vcol_fixpt    = 1
 )(
     // Core clock.
-    input  logic        clk,
+    input  wire         clk,
     // Synchronous reset.
-    input  logic        rst,
+    input  wire         rst,
     // FPU interface.
     saph_fpi.GPU        fpi,
     
     // Trigger rendering of the shape.
-    input  logic        in_trig,
+    input  wire         in_trig,
     // Render a line instead of a trapezoid.
-    input  logic        in_is_line,
+    input  wire         in_is_line,
     // Shape vertices.
     input  vertex       in_shape[4],
     // Ready to accept a new shape next posedge clk.
@@ -37,6 +37,6 @@ module saph_trz_rasterizer#(
     // Calculated pixel to render.
     output pixel        out_pixel,
     // Ready to accept a new pixel next posedge clk.
-    input  logic        out_ready
+    input  wire         out_ready
 );
 endmodule

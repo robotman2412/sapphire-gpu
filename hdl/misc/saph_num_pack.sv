@@ -18,11 +18,11 @@ module saph_num_pack#(
     localparam  unpack_exp      = $clog2(unpack_width+1)
 )(
     // Unpacked data.
-    input  logic[unpack_width-1:0]  in,
+    input  wire [unpack_width-1:0]  in,
     // Packed bit position.
-    input  logic[pack_exp-1:0]      out_pos,
+    input  wire [pack_exp-1:0]      out_pos,
     // Packed bit width.
-    input  logic[unpack_exp-1:0]    out_width,
+    input  wire [unpack_exp-1:0]    out_width,
     // Unpacked number out.
     output logic[pack_width-1:0]    out
 );

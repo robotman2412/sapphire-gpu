@@ -16,32 +16,32 @@ module saph_vidgen_vga#(
     parameter   integer y_width     = 10
 )(
     // VGA core clock.
-    input  logic                clk,
+    input  wire                 clk,
     // Synchronous reset.
-    input  logic                rst,
+    input  wire                 rst,
     // VGA output enable.
-    input  logic                en,
+    input  wire                 en,
     
     // VGA clock divider minus one.
-    input  logic[div_width-1:0] vga_clk_div,
+    input  wire [div_width-1:0] vga_clk_div,
     
     // Horizontal front porch width minus one.
-    input  logic[x_width-1:0]   h_fp_width,
+    input  wire [x_width-1:0]   h_fp_width,
     // Horizontal video width minus one.
-    input  logic[x_width-1:0]   h_vid_width,
+    input  wire [x_width-1:0]   h_vid_width,
     // Horizontal back porch width minus one.
-    input  logic[x_width-1:0]   h_bp_width,
+    input  wire [x_width-1:0]   h_bp_width,
     // Horizontal sync width minus one.
-    input  logic[x_width-1:0]   h_sync_width,
+    input  wire [x_width-1:0]   h_sync_width,
     
     // Vertical front porch width minus one.
-    input  logic[y_width-1:0]   v_fp_width,
+    input  wire [y_width-1:0]   v_fp_width,
     // Vertical video width minus one.
-    input  logic[y_width-1:0]   v_vid_width,
+    input  wire [y_width-1:0]   v_vid_width,
     // Vertical back porch width minus one.
-    input  logic[y_width-1:0]   v_bp_width,
+    input  wire [y_width-1:0]   v_bp_width,
     // Vertical sync width minus one.
-    input  logic[y_width-1:0]   v_sync_width,
+    input  wire [y_width-1:0]   v_sync_width,
     
     // Pixel lookup port.
     saph_pixreadport.GPU        pix,

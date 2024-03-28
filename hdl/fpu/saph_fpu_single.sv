@@ -21,9 +21,9 @@ module saph_fpu_single#(
     parameter   bit     plr_post    = 1
 )(
     // Core clock.
-    input  logic    clk,
+    input  wire     clk,
     // Synchronous reset.
-    input  logic    rst,
+    input  wire     rst,
     
     // FPU interface.
     saph_fpi.FPU    port

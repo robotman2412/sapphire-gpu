@@ -17,8 +17,8 @@ module saph_tri_breaker#(
     parameter vcol_fixpt    = 1
 )(
     // Core clock.
-    input  logic        clk,
+    input  wire         clk,
     // Synchronous reset.
-    input  logic        rst
+    input  wire         rst
 );
 endmodule

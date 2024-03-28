@@ -14,17 +14,17 @@ module saph_float_incrementer#(
     parameter   integer latency = 2
 )(
     // Core clock.
-    input  logic                clk,
+    input  wire                 clk,
     // Synchronous reset.
-    input  logic                rst,
+    input  wire                 rst,
     // Floating-point unit interfaces.
     saph_fpi.GPU                fpi[numbers],
     
     // Latch init values.
-    input  logic                latch,
+    input  wire                 latch,
     // Enable increment.
     // Overriden by latch.
-    input  logic[numbers-1:0]   count,
+    input  wire [numbers-1:0]   count,
     // Incremented value is ready after posedge clk.
     output logic                ready,
     
