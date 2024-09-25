@@ -103,4 +103,8 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
         valid := io.mem.HREADY
         arbitrateTo(io.data)
     }
+    
+    // Build the pipeline.
+    val links = for (i <- 0 until nodes.length - 1) yield CtrlLink(nodes(i), nodes(i+1))
+    Builder(links)
 }
