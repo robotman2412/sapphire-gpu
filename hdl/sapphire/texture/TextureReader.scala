@@ -2,12 +2,12 @@ package sapphire.texture
 
 // Copyright © 2024, Julian Scheffers, see LICENSE for info
 
-import spinal.core._
 import sapphire._
-import spinal.lib.experimental.math._
+import spinal.core._
 import spinal.lib._
-import spinal.lib.misc.pipeline._
 import spinal.lib.bus.amba3.ahblite._
+import spinal.lib.experimental.math._
+import spinal.lib.misc.pipeline._
 
 /** Accepts floating-point UV coordinates and reads raw texture data. */
 case class TextureReader(cfg: SapphireCfg) extends Component {
@@ -38,8 +38,8 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
         arbitrateFrom(io.uv)
         val UF = insert(io.uv.payload(0))
         val VF = insert(io.uv.payload(1))
-        val UI = insert(UF.toRecFloating.toUFix(0 exp, 24 bits))
-        val VI = insert(VF.toRecFloating.toUFix(0 exp, 24 bits))
+        val UI = insert(UF.toRecFloating.toUFix(24 exp, 24 bits))
+        val VI = insert(VF.toRecFloating.toUFix(24 exp, 24 bits))
     }
     
     /** Multiply quantized UVs into X and Y coordinates. */
@@ -93,18 +93,14 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
         }
         
         // Block if the memory is not ready.
-        when (!io.mem.HREADY) {
-            ready := False
-        }
+        ready := io.mem.HREADY
     }
     
     /** Memory response logic. */
     val mem1 = new memNode1.Area {
         val RDATA = insert(io.mem.HRDATA)
         io.data.payload(8 downto 0) := RDATA(8 downto 0) >> acalc.SHR
-        when (!io.mem.HREADY) {
-            valid := False
-        }
+        valid := io.mem.HREADY
         arbitrateTo(io.data)
     }
 }

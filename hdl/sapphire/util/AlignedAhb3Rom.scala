@@ -1,8 +1,8 @@
-package nebula.util
+package sapphire.util
 
 // Copyright © 2024, Julian Scheffers, see LICENSE for info
 
-import nebula._
+import sapphire._
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._

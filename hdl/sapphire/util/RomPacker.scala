@@ -1,4 +1,4 @@
-package nebula.util
+package sapphire.util
 
 // Copyright © 2024, Julian Scheffers, see LICENSE for info
 
