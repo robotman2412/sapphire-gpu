@@ -8,6 +8,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.experimental.math._
 import spinal.lib.misc.pipeline._
+import sapphire.util.FloatUtil.floatToUint01
 
 /** Accepts floating-point UV coordinates and reads raw texture data. */
 case class TextureReader(cfg: SapphireCfg) extends Component {
@@ -29,17 +30,15 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
     val f2i = new builder.Ctrl(0) {
         up.valid    := io.uv.valid
         io.uv.ready := isReady
-        val UF = insert(io.uv.payload(0))
-        val VF = insert(io.uv.payload(1))
-        val UI = insert(UF.toRecFloating.toUFix(0 exp, 24 bits))
-        val VI = insert(VF.toRecFloating.toUFix(0 exp, 24 bits))
+        val UI = insert(floatToUint01(io.uv.payload(0), 24))
+        val VI = insert(floatToUint01(io.uv.payload(1), 24))
     }
     
     /** Multiply quantized UVs into X and Y coordinates. */
     val mul = new builder.Ctrl(plCfg.fconvStage.toInt) {
         val range = cfg.pixelBits + 23 downto 24
-        val X = insert((io.texture.spec.width  * f2i.UI.raw)(range))
-        val Y = insert((io.texture.spec.height * f2i.VI.raw)(range))
+        val X = insert((io.texture.spec.width  * f2i.UI)(range))
+        val Y = insert((io.texture.spec.height * f2i.VI)(range))
     }
     
     /** Compute texture index of pixel. */
@@ -72,14 +71,18 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
         // Set constant memory bus signals.
         io.mem.HWDATA.assignDontCare()
         io.mem.HWRITE    := False
-        io.mem.HSIZE     := B"010"
         io.mem.HPROT     := B"1111" // Cacheable bufferable privileged data
         io.mem.HMASTLOCK := False
         io.mem.HBURST    := B"000"
         
         // Set dynamic memory bus signals.
+        io.mem.HSIZE     := io.texture.spec.pixfmt.bpp.mux(
+            default   -> B"000",
+            M"010---" -> B"001",
+            M"011---" -> B"010",
+            M"1-----" -> B"010",
+        )
         io.mem.HADDR  := acalc.ADDR
-        io.mem.HADDR(1 downto 0) := U"00"
         io.mem.HTRANS := AhbLite3.IDLE
         when (isValid) {
             io.mem.HTRANS := AhbLite3.NONSEQ
@@ -94,7 +97,7 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
         val RDATA = insert(io.mem.HRDATA)
         io.data.payload(31 downto 8) := RDATA(31 downto 8)
         io.data.payload( 7 downto 0) := RDATA( 7 downto 0) >> acalc.SHR
-        io.data.valid := io.mem.HREADY
+        io.data.valid := isValid && io.mem.HREADY
         haltWhen(io.mem.HREADY && !io.data.ready)
     }
     

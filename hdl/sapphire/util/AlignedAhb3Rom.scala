@@ -33,7 +33,7 @@ class AlignedAhb3Rom(
     io.ahb.HRDATA.assignDontCare()
     
     io.ahb.HREADYOUT    := True
-    for (i <- 0 until log2Up(cfg.dataWidth/8)) {
+    for (i <- 0 to log2Up(cfg.dataWidth/8)) {
         when (HSIZE === B(i, 3 bits)) {
             // Set HRESP to ERROR if misaligned.
             io.ahb.HRESP  := HADDR(i-1 downto 0) =/= U(0, i bits)

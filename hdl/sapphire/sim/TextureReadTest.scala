@@ -52,8 +52,10 @@ case class TextureReadTestBench(cfg: SapphireCfg) extends Component {
 object TextureReadTest extends App {
     Config.sim.compile(TextureReadTestBench(SapphireCfg())).doSim(this.getClass.getSimpleName) { dut =>
         // Fork a process to generate the reset and the clock on the dut
-        dut.io.uv.valid #= false
         dut.clockDomain.forkStimulus(period = 10)
+        dut.io.uv.valid #= false
+        dut.io.data.ready #= true
+        dut.clockDomain.waitSampling(1)
         
         // Sequence of pixels to read.
         val read: Seq[(Float,Float)] = Seq(
@@ -67,8 +69,8 @@ object TextureReadTest extends App {
         // Stream some reads.
         while (pos < read.length) {
             dut.io.uv.valid      #= true
-            dut.io.uv.payload(1) #= floatToIntBits(read(pos)._1)
             dut.io.uv.payload(0) #= floatToIntBits(read(pos)._1)
+            dut.io.uv.payload(1) #= floatToIntBits(read(pos)._2)
             dut.clockDomain.waitSampling(1)
             if (dut.io.uv.ready.toBoolean) {
                 pos += 1
