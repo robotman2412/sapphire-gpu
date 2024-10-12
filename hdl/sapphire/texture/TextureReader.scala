@@ -36,7 +36,7 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
     
     /** Multiply quantized UVs into X and Y coordinates. */
     val mul = new builder.Ctrl(plCfg.fconvStage.toInt) {
-        val range = cfg.pixelBits + 23 downto 24
+        val range = cfg.coordBits + 23 downto 24
         val X = insert((io.texture.spec.width  * f2i.UI)(range))
         val Y = insert((io.texture.spec.height * f2i.VI)(range))
     }
@@ -57,7 +57,7 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
             M"011---" -> (icalc.IDX + icalc.IDX << 1).resize(26),
             default   -> (icalc.IDX << 2)            .resize(26),
         ))
-        val SHR  = insert(io.texture.spec.pixfmt.bpp.mux(
+        val BPOS = insert(io.texture.spec.pixfmt.bpp.mux(
             M"00000-" -> icalc.IDX(2 downto 0),
             M"00001-" -> icalc.IDX(1 downto 0).resize(3),
             M"0001--" -> icalc.IDX(0 downto 0).resize(3),
@@ -71,9 +71,9 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
         // Set constant memory bus signals.
         io.mem.HWDATA.assignDontCare()
         io.mem.HWRITE    := False
-        io.mem.HPROT     := B"1111" // Cacheable bufferable privileged data
+        io.mem.HPROT     := B"1111" // Cacheable bufferable privileged data.
         io.mem.HMASTLOCK := False
-        io.mem.HBURST    := B"000"
+        io.mem.HBURST    := B"000" // SINGLE.
         
         // Set dynamic memory bus signals.
         io.mem.HSIZE     := io.texture.spec.pixfmt.bpp.mux(
@@ -96,7 +96,7 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
     val mem1 = new builder.Ctrl(plCfg.fconvStage.toInt + 2 * plCfg.normMulStages + plCfg.acalcStage.toInt + 1) {
         val RDATA = insert(io.mem.HRDATA)
         io.data.payload(31 downto 8) := RDATA(31 downto 8)
-        io.data.payload( 7 downto 0) := RDATA( 7 downto 0) >> acalc.SHR
+        io.data.payload( 7 downto 0) := RDATA( 7 downto 0) >> acalc.BPOS
         io.data.valid := isValid && io.mem.HREADY
         haltWhen(io.mem.HREADY && !io.data.ready)
     }

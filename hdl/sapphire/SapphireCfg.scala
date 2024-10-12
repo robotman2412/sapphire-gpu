@@ -6,7 +6,7 @@ import spinal.core._
 
 case class SapphireCfg(
     /** Pixel coordinate bit width. */
-    pixelBits: Int           = 12,
+    coordBits: Int           = 12,
     /** Virtual address bit width. */
     vaddrBits: Int           = 32,
     /** Pipeline topology configuration. */

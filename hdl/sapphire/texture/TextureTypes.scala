@@ -4,6 +4,7 @@ package sapphire.texture
 
 import spinal.core._
 import sapphire._
+import sapphire.color._
 
 case class TextureRef(cfg: SapphireCfg) extends Bundle {
     /** Texture format specification. */
@@ -14,16 +15,11 @@ case class TextureRef(cfg: SapphireCfg) extends Bundle {
 
 case class TextureSpec(cfg: SapphireCfg) extends Bundle {
     /** Texture width in pixels. */
-    val width  = UInt(cfg.pixelBits bits)
+    val width  = UInt(cfg.coordBits bits)
     /** Texture height in pixels. */
-    val height = UInt(cfg.pixelBits bits)
-    /** Pixel format specification. */
-    val pixfmt = PixelFormat(cfg)
-}
-
-case class PixelFormat(cfg: SapphireCfg) extends Bundle {
+    val height = UInt(cfg.coordBits bits)
     /** Store in big endian as opposed to little endian. */
     val bigEndian = Bool()
-    /** Number of bits used per pixel. Must always align to bytes or a power-of-two number of bits. */
-    val bpp       = UInt(6 bits)
+    /** Pixel format specification. */
+    val pixfmt = PixelFormat(cfg)
 }
