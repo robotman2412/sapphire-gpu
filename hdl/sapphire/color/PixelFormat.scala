@@ -12,7 +12,7 @@ case class ChannelFormat(cfg: SapphireCfg) extends Bundle {
     val pos   = UInt(5 bits)
 }
 
-case class PixelFormatType(cfg: SapphireCfg) extends SpinalEnum(binarySequential) {
+object PixelFormatType extends SpinalEnum(binarySequential) {
     /** Greyscale; channel 0 defines brightness. */
     val GREYSCALE = newElement()
     /** RGB; channels 0-2 define red, green and blue respectively. */
@@ -25,7 +25,7 @@ case class PixelFormat(cfg: SapphireCfg) extends Bundle {
     /** Number of bits used per pixel. Must always align to bytes or a power-of-two number of bits. */
     val bpp     = UInt(6 bits)
     /** Pixel format type. */
-    val fmtType = PixelFormatType(cfg)
+    val fmtType = PixelFormatType()
     /** Channel formats. */
-    val red     = Vec.fill(4)(ChannelFormat(cfg))
+    val channel = Vec.fill(4)(ChannelFormat(cfg))
 }

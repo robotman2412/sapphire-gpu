@@ -13,14 +13,13 @@ import spinal.lib.bus.amba3.ahblite._
 /** AHB-lite-3 ROM that supports all naturally aligned accesses. */
 class AlignedAhb3Rom(
     cfg:        AhbLite3Config,
-    content: => Seq[Byte],
-    endian:     Endianness = LITTLE
+    content: => Seq[Byte]
 ) extends Component {
     val io = new Bundle {
         val ahb = slave port AhbLite3(cfg)
     }
     val exp   = log2Up(cfg.dataWidth/8)
-    val mem   = Mem(RomPacker(content, cfg.dataWidth bits, endian))
+    val mem   = Mem(RomPacker(content, cfg.dataWidth bits, LITTLE))
     val rdata = mem.readSync(
         (io.ahb.HADDR >> exp) resize mem.addressWidth,
         io.ahb.HTRANS(1)

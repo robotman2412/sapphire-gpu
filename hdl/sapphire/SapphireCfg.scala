@@ -10,7 +10,11 @@ case class SapphireCfg(
     /** Virtual address bit width. */
     vaddrBits: Int           = 32,
     /** Pipeline topology configuration. */
-    plCfg:     SapphirePlCfg = SapphirePlCfg()
+    plCfg:     SapphirePlCfg = SapphirePlCfg(),
+    /** Enable 3D support. */
+    with3D:    Boolean       = false,
+    /** Enable vertex coloring. */
+    withVCol:  Boolean       = false
 )
 
 case class SapphirePlCfg(

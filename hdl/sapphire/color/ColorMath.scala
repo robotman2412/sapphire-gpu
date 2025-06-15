@@ -4,6 +4,7 @@ package sapphire.color
 
 import spinal.core._
 import sapphire._
+import sapphire.color.PixelFormatType._
 
 object ColorMath {
     private def mul(a: UInt, b: UInt): UInt = a * b + a * b(7).asUInt
@@ -40,8 +41,42 @@ object ColorMath {
     )(13 downto 6)
     private def extractChannel(fmt: ChannelFormat, from: UInt): UInt = expand(from >> fmt.pos, fmt.width)
     
-    def unpack(v: UInt): Color = {
-        assert(v.getBitsWidth != 32)
-        null
+    def unpack(fmt: PixelFormat, from: UInt): Color = {
+        val ch = for (i <- 0 to 3) yield extractChannel(fmt.channel(i), from)
+        fmt.fmtType.mux(
+            RGBA      -> Color.RGBA(ch(0), ch(1), ch(2), ch(3)),
+            RGB       -> Color.RGB(ch(0), ch(1), ch(2)),
+            GREYSCALE -> Color.RGB(ch(0), ch(0), ch(0)),
+        )
+    }
+    
+    private def insertChannel(fmt: ChannelFormat, v: UInt): UInt = v >> (U"7" - fmt.width) << fmt.pos
+    
+    def pack(fmt: PixelFormat, color: Color): UInt = {
+        val ch = for (i <- 0 to 3) yield {
+            val tmp = UInt(8 bits)
+            tmp := color(i)
+            tmp
+        }
+        
+        val nCh = UInt(2 bits)
+        when (fmt.fmtType === GREYSCALE) {
+            ch(0) := toGreyscale(color)
+            nCh := U"0"
+        } elsewhen (fmt.fmtType === RGB) {
+            nCh := U"2"
+        } otherwise {
+            nCh := U"3"
+        }
+        
+        val res = U(0, 32 bits)
+        
+        for (i <- 0 until 3) {
+            when (nCh >= U(i, 2 bits)) {
+                res := res | insertChannel(fmt.channel(i), ch(i))
+            }
+        }
+        
+        res
     }
 }

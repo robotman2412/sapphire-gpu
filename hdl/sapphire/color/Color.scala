@@ -10,11 +10,13 @@ case class Color() extends Bundle {
     val g = UInt(8 bits)
     val b = UInt(8 bits)
     val a = UInt(8 bits)
+    
+    def apply(channel: Int): UInt = Seq(r, g, b, a)(channel)
 }
 
 object Color {
     def RGBA(r: UInt, g: UInt, b: UInt, a: UInt): Color = {
-        val col    = Color()
+        val col = Color()
         col.r := r
         col.g := g
         col.b := b
@@ -22,7 +24,7 @@ object Color {
         col
     }
     
-    def RGB(r: UInt, g: UInt, b: UInt, a: UInt): Color = RGBA(r, g, b, U"8'xff")
+    def RGB(r: UInt, g: UInt, b: UInt): Color = RGBA(r, g, b, U"8'xff")
     
     def GREY(v: UInt): Color = RGBA(v, v, v, U"8'xff")
 }
