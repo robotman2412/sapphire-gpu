@@ -31,13 +31,15 @@ object SpiMaster {
 
     /// A bus for interfacing with an SPI master PHY.
     case class Bus() extends Bundle with IMasterSlave {
+        /// SPI PHY is busy performing an action.
+        val busy   = Bool()
         /// Action to perform and data to send.
         val action = Stream(Action())
         /// Data received.
         val rxData = Stream(Bits(8 bits))
 
         override def asMaster() = {
-            master(action); slave(rxData)
+            in(busy); master(action); slave(rxData)
         }
     }
 }
@@ -63,9 +65,6 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
         val mosiEn = out port Bits(4 bits)
         /// Data input pins.
         val miso   = in port Bits(8 bits)
-
-        /// Is currently busy.
-        val busy = out port Bool()
     }
 
     /// Start transaction trigger; is false if the settings are invalid.
@@ -83,13 +82,13 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
     )
 
     /// Enable register for SCLK.
-    val sclkEn      = RegInit(False)
+    val sclkEn             = RegInit(False)
     /// Enable for `syncClk`.
-    val syncClkEn   = (cfg.mode == SpiCfg.clkDyn) generate RegInit(False)
+    val syncClkEn          = (cfg.mode == SpiCfg.clkDyn) generate RegInit(False)
     /// Enable for `offsetClk`.
-    val offsetClkEn = (cfg.mode == SpiCfg.clkDyn) generate RegInit(False)
+    val offsetClkEn        = (cfg.mode == SpiCfg.clkDyn) generate RegInit(False)
     /// Latched value of CPOL.
-    val lastCpol    = {
+    val lastCpol           = {
         if (cfg.mode == SpiCfg.clkDyn) {
             RegInit(False)
         } else {
@@ -97,8 +96,7 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
         }
     }
     /// Remaining number of cycles.
-    val cycles      = RegInit(U(0, 4 bits))
-    io.busy := cycles =/= 0
+    val cycles             = RegInit(U(0, 4 bits))
     /// Current settings.
     val settings           = Reg(SpiSettings())
     /// Inputs shifted to account for outputs.
@@ -115,6 +113,7 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
     /// Output enables is also a register.
     io.mosiEn.setAsReg()
     io.mosiEn.init(B(0, 4 bits))
+    io.bus.busy           := cycles =/= 0
 
     when(settings.fullDuplex && Bool(cfg.dynDuplex)) {
         // Shift amount depends on the number of bits.

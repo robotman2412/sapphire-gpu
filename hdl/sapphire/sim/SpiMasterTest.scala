@@ -48,7 +48,7 @@ object SpiMasterTest extends App {
             while (
                 index < testData.length
                 || (dut.io.bus.action.ready.toBoolean && dut.io.bus.action.valid.toBoolean)
-                || dut.io.busy.toBoolean
+                || dut.io.bus.busy.toBoolean
             ) {
                 dut.clockDomain.waitSampling(1)
             }
