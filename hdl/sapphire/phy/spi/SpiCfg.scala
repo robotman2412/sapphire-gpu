@@ -4,23 +4,18 @@ package sapphire.phy.spi
 // SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 object SpiCfg {
-    /// Possible values for CPOL.
-    sealed trait CpolMode;
-    /// CPOL is always 0.
-    object cpol0   extends CpolMode;
-    /// CPOL is always 1.
-    object cpol1   extends CpolMode;
-    /// CPOL is dynamic.
-    object cpolDyn extends CpolMode;
-
-    /// Possible values for CPHA.
-    sealed trait CphaMode;
-    /// CPHA is always 0.
-    object cpha0   extends CphaMode;
-    /// CPHA is always 1.
-    object cpha1   extends CphaMode;
-    /// CPHA is dynamic.
-    object cphaDyn extends CphaMode;
+    /// Possible SPI clock modes.
+    sealed trait ClkMode;
+    /// Dynamic CPOL and CPHA.
+    object clkDyn     extends ClkMode;
+    /// CPOL=0 and CPHA=0.
+    object cpol0cpha0 extends ClkMode;
+    /// CPOL=1 and CPHA=0.
+    object cpol1cpha0 extends ClkMode;
+    /// CPOL=0 and CPHA=1.
+    object cpol0cpha1 extends ClkMode;
+    /// CPOL=1 and CPHA=1.
+    object cpol1cpha1 extends ClkMode;
 
     /// Possible support for a particular bit width.
     sealed trait BitsMode;
@@ -52,10 +47,8 @@ object SpiCfg {
 
 /// Elaborate-time configuration for SPI PHYs.
 case class SpiCfg(
-    /// Possible values for CPOL.
-    val cpol: SpiCfg.CpolMode = SpiCfg.cpol0,
-    /// Possible values for CPHA.
-    val cpha: SpiCfg.CphaMode = SpiCfg.cpha0,
+    /// Possible values for CPOL and CPHA.
+    val mode: SpiCfg.ClkMode = SpiCfg.clkDyn,
     /// Supports 1-bit.
     val with1Bit: SpiCfg.BitsMode = SpiCfg.any,
     /// Supports 2-bit.

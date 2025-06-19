@@ -67,7 +67,6 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
         /// Is currently busy.
         val busy = out port Bool()
     }
-    io.sclk := False
 
     /// Start transaction trigger; is false if the settings are invalid.
     val trigger = io.bus.action.fire && io.bus.action.settings.log2Bits =/= 3
@@ -83,8 +82,22 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
         ClockDomain.current.config.clockEdge == RISING
     )
 
+    /// Enable register for SCLK.
+    val sclkEn      = RegInit(False)
+    /// Enable for `syncClk`.
+    val syncClkEn   = (cfg.mode == SpiCfg.clkDyn) generate RegInit(False)
+    /// Enable for `offsetClk`.
+    val offsetClkEn = (cfg.mode == SpiCfg.clkDyn) generate RegInit(False)
+    /// Latched value of CPOL.
+    val lastCpol    = {
+        if (cfg.mode == SpiCfg.clkDyn) {
+            RegInit(False)
+        } else {
+            Bool(cfg.mode == cpol1cpha0 || cfg.mode == cpol1cpha1)
+        }
+    }
     /// Remaining number of cycles.
-    val cycles = RegInit(U(0, 4 bits))
+    val cycles      = RegInit(U(0, 4 bits))
     io.busy := cycles =/= 0
     /// Current settings.
     val settings           = Reg(SpiSettings())
@@ -133,10 +146,32 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
         io.bus.action.ready := False
     }
 
+    // SCLK output mux.
+    when(sclkEn) {
+        if (cfg.mode == SpiCfg.cpol0cpha0 || cfg.mode == SpiCfg.cpol1cpha1) {
+            io.sclk := offsetClk
+        } else if (cfg.mode != SpiCfg.clkDyn) {
+            io.sclk := syncClk
+        } else {
+            io.sclk := (syncClk && syncClkEn) || (offsetClk && offsetClkEn)
+        }
+    } otherwise {
+        io.sclk := lastCpol
+    }
+
     // Finite state machine to handle the SPI transaction.
     when(trigger) {
         // Save the settings.
         settings := io.bus.action.settings
+        // Configure SCLK.
+        if (cfg.mode == SpiCfg.clkDyn) {
+            val doSync =
+                io.bus.action.settings.cpol ^ io.bus.action.settings.cpha
+            syncClkEn   := doSync
+            offsetClkEn := !doSync
+            lastCpol    := io.bus.action.settings.cpol
+        }
+        sclkEn   := True
         // Determine whether receiving data is valid.
         isRecv   := io.bus.action.payload.atype.asBits(1)
         // Set the number of cycles to send.
@@ -167,6 +202,12 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
         when(cycles === 1) {
             // If we are in the last cycle, clear the output enables.
             io.mosiEn := B(0, 4 bits)
+            // And turn off the clock.
+            if (cfg.mode == SpiCfg.clkDyn) {
+                syncClkEn   := False
+                offsetClkEn := False
+            }
+            sclkEn    := False
         }
         // Decrement the cycles.
         cycles := cycles - 1
