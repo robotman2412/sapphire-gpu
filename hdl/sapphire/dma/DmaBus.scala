@@ -6,33 +6,42 @@ package sapphire.dma
 import spinal.core._
 import spinal.lib._
 
-/// Direct Memory Access setup bus.
+/** Direct Memory Access setup bus. */
 case class DmaSetupBus(abits: BitCount) extends Bundle with IMasterSlave {
-    /// Trigger DMA setup if ready.
-    val setup         = Bool()
-    /// Ready for DMA to be set up.
-    val setupReady    = Bool()
-    /// Trigger DMA teardown if ready.
-    val teardown      = Bool()
-    /// Ready for DMA to be torn down.
+
+    /** Trigger DMA setup if ready. */
+    val setup = Bool()
+
+    /** Ready for DMA to be set up. */
+    val setupReady = Bool()
+
+    /** Trigger DMA teardown if ready. */
+    val teardown = Bool()
+
+    /** Ready for DMA to be torn down. */
     val teardownReady = Bool()
-    /// Is a write access (instead of read).
-    val write         = Bool()
-    /// DMA start address.
-    val addr          = UInt(abits)
+
+    /** Is a write access (instead of read). */
+    val write = Bool()
+
+    /** DMA start address. */
+    val addr = UInt(abits)
 
     override def asMaster() = {
         out(setup, teardown, write, addr); in(setupReady, teardownReady)
     }
 }
 
-/// Direct Memory Access bus.
+/** Direct Memory Access bus. */
 case class DmaBus(abits: BitCount) extends Bundle with IMasterSlave {
-    /// DMA setup.
+
+    /** DMA setup. */
     val setup = DmaSetupBus(abits)
-    /// Write data.
+
+    /** Write data. */
     val wdata = Stream(Bits(8 bits))
-    /// Read data.
+
+    /** Read data. */
     val rdata = Stream(Bits(8 bits))
 
     override def asMaster() = {
