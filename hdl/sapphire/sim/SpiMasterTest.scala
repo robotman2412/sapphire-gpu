@@ -3,16 +3,12 @@ package sapphire.sim
 // Copyright © 2024, Julian Scheffers, see LICENSE for info
 
 import sapphire._
+import sapphire.phy.spi._
+import scala.util.Random
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import sapphire.phy.spi._
-import sapphire.phy.spi.SpiMaster.ActionType
-import sapphire.phy.spi.SpiSettings
-import sapphire.phy.spi.SpiMaster.Action
-import spinal.lib.sim.StreamMonitor
-import spinal.lib.sim.StreamDriver
-import scala.util.Random
+import spinal.lib.sim._
 
 object SpiMasterTest extends App {
     Config.sim
@@ -21,9 +17,7 @@ object SpiMasterTest extends App {
             // Fork a process to generate the reset and the clock on the dut
             dut.clockDomain.forkStimulus(period = 10)
 
-            dut.io.bus.rxData.ready #= true
-
-            StreamMonitor(dut.io.bus.rxData, dut.clockDomain) { data =>
+            FlowMonitor(dut.io.bus.rxData, dut.clockDomain) { data =>
                 println(s"Received: ${data.toInt}")
             }
 
@@ -33,7 +27,7 @@ object SpiMasterTest extends App {
             StreamDriver(dut.io.bus.action, dut.clockDomain) { data =>
                 val hasData = index < testData.length
                 if (hasData) {
-                    data.atype #= ActionType.SEND_BYTE
+                    data.atype #= SpiMaster.ActionType.SEND_BYTE
                     data.data #= testData(index)
                     data.settings.fullDuplex #= false
                     data.settings.log2Bits #= Random.nextInt(3)

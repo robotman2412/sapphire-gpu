@@ -112,10 +112,10 @@ object SpiMemTest extends App {
             dut.io.dma.setup.setup #= true
             dut.io.dma.setup.write #= true
             dut.io.dma.setup.addr #= 0x332211
+            dut.clockDomain.waitSampling()
             while (!dut.io.dma.setup.setupReady.toBoolean) {
                 dut.clockDomain.waitSampling()
             }
-            dut.clockDomain.waitSampling()
             dut.io.dma.setup.setup #= false
 
             // Wait for all data to be written.
@@ -125,30 +125,46 @@ object SpiMemTest extends App {
 
             // Issue DMA teardown.
             dut.io.dma.setup.teardown #= true
+            dut.clockDomain.waitSampling()
             while (!dut.io.dma.setup.teardownReady.toBoolean) {
                 dut.clockDomain.waitSampling()
             }
+            dut.io.dma.setup.teardown #= false
 
             // Issue read DMA setup.
             dut.io.dma.setup.setup #= true
             dut.io.dma.setup.write #= false
             dut.io.dma.setup.addr #= 0x665544
+            dut.clockDomain.waitSampling()
             while (!dut.io.dma.setup.setupReady.toBoolean) {
                 dut.clockDomain.waitSampling()
             }
-            dut.clockDomain.waitSampling()
             dut.io.dma.setup.setup #= false
 
-            // Read for a little while.
-            dut.io.dma.rdata.ready #= true
+            // Delay for a bit.
             dut.clockDomain.waitSampling(20)
+
+            // Accept data beyond SPI throughput.
+            dut.io.dma.rdata.ready #= true
+            dut.clockDomain.waitSampling(32)
+            dut.io.dma.rdata.ready #= false
+
+            // Accept data at exactly SPI throughput.
+            for (i <- 0 until 16) {
+                dut.io.dma.rdata.ready #= false
+                dut.clockDomain.waitSampling()
+                dut.io.dma.rdata.ready #= true
+                dut.clockDomain.waitSampling()
+            }
             dut.io.dma.rdata.ready #= false
 
             // Issue DMA teardown.
             dut.io.dma.setup.teardown #= true
+            dut.clockDomain.waitSampling()
             while (!dut.io.dma.setup.teardownReady.toBoolean) {
                 dut.clockDomain.waitSampling()
             }
+            dut.io.dma.setup.teardown #= false
 
             dut.clockDomain.waitSampling(20)
         }

@@ -110,15 +110,36 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
     /** Address buffered at DMA setup time. */
     val addr = Reg(UInt(abits))
 
+    /** Size of the read buffer. */
+    val readBufDepth = 3
+
+    /** How much capacity for reads is in the read buffer. */
+    val readCap = RegInit(U(readBufDepth, log2Up(readBufDepth) bits))
+
+    /** Read data buffer. */
+    val fifo = StreamFifo(Bits(8 bits), depth = readBufDepth)
+    fifo.io.flush := False
+    fifo.io.push << io.spi.rxData.toStream
+    io.dma.rdata << fifo.io.pop
+
     // Ready to accept setup in IDLE state.
     io.dma.setup.setupReady    := state === State.IDLE && io.enable
     // Ready to accept teardown in DATA state.
     io.dma.setup.teardownReady := state === State.DATA && !io.spi.action.fire && !io.spi.busy
-    // Read data is directly connected to the DMA bus as this controller need not directly see it.
-    io.dma.rdata << io.spi.rxData
-    io.dma.wdata.ready         := False
+
+    // Read capacity logic.
+    when(io.dma.setup.teardown && io.dma.setup.teardownReady) {
+        readCap := U(readBufDepth, 2 bits)
+    } elsewhen (!isWrite && state === State.DATA) {
+        when(io.dma.rdata.fire && !io.spi.action.fire) {
+            readCap := readCap + 1
+        } elsewhen (!io.dma.rdata.fire && io.spi.action.fire) {
+            readCap := readCap - 1
+        }
+    }
 
     // SPI controller command logic.
+    io.dma.wdata.ready := False
     when(state === State.DATA) {
         when(isWrite) {
             // Connect DMA stream for write.
@@ -128,7 +149,7 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
             io.spi.action.payload.atype := SpiMaster.ActionType.SEND_BYTE
         } otherwise {
             // Connect DMA stream for read.
-            io.spi.action.valid         := True
+            io.spi.action.valid         := readCap =/= 0
             io.spi.action.payload.data.assignDontCare
             io.spi.action.payload.atype := SpiMaster.ActionType.RECV_BYTE
         }
@@ -175,6 +196,7 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
         state         := State.RESET
         cycles        := settings.csResetCycles
         io.chipSelect := False
+        fifo.io.flush := True
 
     } elsewhen (state === State.IDLE || state === State.DATA) {
         // No state change when in idle or data state.

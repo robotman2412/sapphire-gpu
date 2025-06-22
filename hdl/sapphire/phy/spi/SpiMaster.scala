@@ -47,7 +47,7 @@ object SpiMaster {
         val action = Stream(Action())
 
         /** Data received. */
-        val rxData = Stream(Bits(8 bits))
+        val rxData = Flow(Bits(8 bits))
 
         override def asMaster() = {
             in(busy); master(action); slave(rxData)
@@ -87,15 +87,15 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
     /** Start transaction trigger; is false if the settings are invalid. */
     val trigger = io.bus.action.fire && io.bus.action.settings.log2Bits =/= 3
 
-    /** Clock that rises in phase with this component's clock. */
-    /** Should fall at a 180 degree offset from the active component clock edge.
+    /** Clock that rises in phase with this component's clock. Falls at a 180
+      * degree offset from the active component clock edge.
       */
     val syncClk = ClockDomain.current.readClockWire ^ Bool(
         ClockDomain.current.config.clockEdge == FALLING
     )
 
-    /** Clock that falls in phase with this component's clock. */
-    /** Should rise at a 180 degree offset from the active component clock edge.
+    /** Clock that falls in phase with this component's clock. Rises at a 180
+      * degree offset from the active component clock edge.
       */
     val offsetClk = ClockDomain.current.readClockWire ^ Bool(
         ClockDomain.current.config.clockEdge == RISING
@@ -165,16 +165,12 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
 
     when(cycles === 1 && isRecv) {
         io.bus.rxData.valid := True
-    } elsewhen (io.bus.rxData.ready) {
+    } otherwise {
         io.bus.rxData.valid := False
     }
 
     // This is pipelined a bit, so, to not waste cycles, we need to accept commands even if `cycles` is 1.
     io.bus.action.ready := cycles <= 1
-    when(!io.bus.rxData.ready && io.bus.rxData.valid) {
-        // If whatever is receiving is not ready, don't potentially overwrite it by starting a new action.
-        io.bus.action.ready := False
-    }
 
     // SCLK output mux.
     when(sclkEn) {
