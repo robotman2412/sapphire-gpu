@@ -112,10 +112,9 @@ object SpiMemTest extends App {
             dut.io.dma.setup.setup #= true
             dut.io.dma.setup.write #= true
             dut.io.dma.setup.addr #= 0x332211
-            dut.clockDomain.waitSampling()
-            while (!dut.io.dma.setup.setupReady.toBoolean) {
+            do {
                 dut.clockDomain.waitSampling()
-            }
+            } while (!dut.io.dma.setup.setupReady.toBoolean)
             dut.io.dma.setup.setup #= false
 
             // Wait for all data to be written.
@@ -125,20 +124,18 @@ object SpiMemTest extends App {
 
             // Issue DMA teardown.
             dut.io.dma.setup.teardown #= true
-            dut.clockDomain.waitSampling()
-            while (!dut.io.dma.setup.teardownReady.toBoolean) {
+            do {
                 dut.clockDomain.waitSampling()
-            }
+            } while (!dut.io.dma.setup.teardownReady.toBoolean)
             dut.io.dma.setup.teardown #= false
 
             // Issue read DMA setup.
             dut.io.dma.setup.setup #= true
             dut.io.dma.setup.write #= false
             dut.io.dma.setup.addr #= 0x665544
-            dut.clockDomain.waitSampling()
-            while (!dut.io.dma.setup.setupReady.toBoolean) {
+            do {
                 dut.clockDomain.waitSampling()
-            }
+            } while (!dut.io.dma.setup.setupReady.toBoolean)
             dut.io.dma.setup.setup #= false
 
             // Delay for a bit.
@@ -160,10 +157,9 @@ object SpiMemTest extends App {
 
             // Issue DMA teardown.
             dut.io.dma.setup.teardown #= true
-            dut.clockDomain.waitSampling()
-            while (!dut.io.dma.setup.teardownReady.toBoolean) {
+            do {
                 dut.clockDomain.waitSampling()
-            }
+            } while (!dut.io.dma.setup.teardownReady.toBoolean)
             dut.io.dma.setup.teardown #= false
 
             dut.clockDomain.waitSampling(20)
