@@ -25,7 +25,7 @@ Sapphire will send data in response to the command of the previous transaction i
 
 
 ## Memory Access Over Serial
-With a serial interfae, the GPU is not directly connected to the host and must therefor expose commands to access memory. These commands are specific to the serial command interface.
+With a serial interface, the GPU is not directly connected to the host and must therefor expose commands to access memory. These commands are specific to the serial command interface.
 
 There are two main commands for this purpose: [READ DMA](../cmd/phys_serial.md#read-dma-use-dma-to-read-gpu-memory) and [WRITE DMA](../cmd/phys_serial.md#write-dma-use-dma-to-write-gpu-memory).
 They are somewhat special in their operation in that they use an interrupt to indicate readiness for DMA data transfer.
