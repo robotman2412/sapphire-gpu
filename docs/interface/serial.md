@@ -27,7 +27,7 @@ Sapphire will send data in response to the command of the previous transaction i
 ## Memory Access Over Serial
 With a serial interface, the GPU is not directly connected to the host and must therefor expose commands to access memory. These commands are specific to the serial command interface.
 
-There are two main commands for this purpose: [READ DMA](../cmd/phys_serial.md#read-dma-use-dma-to-read-gpu-memory) and [WRITE DMA](../cmd/phys_serial.md#write-dma-use-dma-to-write-gpu-memory).
+There are two main commands for this purpose: [READ DMA](../cmd/serial.md#read-dma-use-dma-to-read-gpu-memory) and [WRITE DMA](../cmd/serial.md#write-dma-use-dma-to-write-gpu-memory).
 They are somewhat special in their operation in that they use an interrupt to indicate readiness for DMA data transfer.
 The host should use the [STATUS](../cmd/management.md#status-read-status-registers) command to tell whether an interrupt is DMA readiness or another interrupt if it had another interrupt source enabled when issuing a DMA command.
-To enable this kind of testing and delayed data transfer, the [READ PAYLOAD](../cmd/phys_serial.md#read-payload-get-payload-from-previous-read-dma) and [WRITE PAYLOAD](../cmd/phys_serial.md#write-payload-send-payload-for-previous-write-dma) exist to separate the DMA setup and data stages.
+To enable this kind of testing and delayed data transfer, the [READ PAYLOAD](../cmd/serial.md#read-payload-get-payload-from-previous-read-dma) and [WRITE PAYLOAD](../cmd/serial.md#write-payload-send-payload-for-previous-write-dma) exist to separate the DMA setup and data stages.
