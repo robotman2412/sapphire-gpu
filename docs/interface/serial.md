@@ -4,9 +4,9 @@ This interface is characterized by transactions that are either command or data,
 
 
 ## Common Operation
-A transfer starts with a single command byte, a command-dependent number of parameter bytes, and padding bytes (which are ignored completely by the GPU and must be 0 for forwards compatibility).
+A transfer starts with a single command byte, a command-dependent number of parameter bytes, and padding bytes (which are ignored completely by the GPU and must be 0 for forward compatibility).
 
-Commands that write something to a part of the GPU registers, queues or RAM may either have the write data as part of the command or as sent with a dedicated payload command command.
+Commands that write something to a part of the GPU registers, queues or RAM may either have the write data as part of the command's parameters or as sent with a dedicated payload command.
 
 Commands that have a response will return the response data according to the rules for half- or full-duplex described later. If the transfer in which the GPU sends the response is too small to store the entire response, the GPU will discard the remainder.
 
