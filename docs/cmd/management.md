@@ -6,9 +6,9 @@
 This command does nothing.
 It serves primarily as a dummy command, having number 0 so that reading a command's response over [full-duplex serial](../interface/serial.md#full-duplex-operation) doesn't require another action be performed.
 
-No parameters.
-
 Returns nothing.
+
+No parameters.
 
 
 ## STATUS: Read Status Registers
