@@ -4,6 +4,66 @@ package sapphire.phy.spi
 // SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 import spinal.core._
+import spinal.lib._
+import sapphire.util.Vacuum
 
-/** A simple 1-bit full duplex SPI slave implementation. */
-case class SimpleSpiSlave() extends Component {}
+/** A simple 1-bit full duplex SPI slave implementation. Uses CPOL=0, CPHA=0. It
+  * is implied that the MISO output enable is connected to the chip select
+  * externally.
+  */
+case class SimpleSpiSlave() extends Component {
+    val io = new Bundle {
+
+        /** Received data flow. */
+        val rxd = master port Flow(Bits(8 bits))
+
+        /** Sent data vacuum. */
+        val txd = slave port Vacuum(Bits(8 bits))
+
+        /** Active-high chip select input. */
+        val chipSelect = in port Bool()
+
+        /** Serial clock input. */
+        val sclk = in port Bool()
+
+        /** Serial receive data. */
+        val mosi = in port Bool()
+
+        /** Serial transmit data. */
+        val miso = out port Bool()
+    }
+
+    /** Transmit shift register. */
+    val txbuf = Reg(Bits(8 bits))
+    io.miso := txbuf(7)
+
+    /** SPI cycle count. */
+    val cycle = RegInit(U(0, 3 bits))
+
+    /** Previous state of `sclk`. */
+    val pSclk = RegNext(io.sclk, False)
+
+    /** Previous state of `chipSelect`. */
+    val pChipSelect = RegNext(io.chipSelect, False)
+
+    io.rxd.payload.setAsReg()
+    io.rxd.valid.setAsReg()
+    io.rxd.valid := False
+    io.txd.ready := False
+    when(!io.chipSelect) {
+        cycle := U(0, 3 bits)
+        io.rxd.payload.assignDontCare()
+    } elsewhen (io.chipSelect && !pChipSelect) {
+        io.txd.ready := True
+        txbuf        := io.txd.payload
+    } elsewhen (io.sclk && !pSclk) {
+        io.rxd.payload    := io.rxd.payload(6 downto 0) ## io.mosi
+        txbuf(7 downto 1) := txbuf(6 downto 0)
+        cycle             := cycle + U(1, 3 bits)
+        when(cycle === 7) {
+            io.rxd.valid := True
+            io.txd.ready := True
+            txbuf        := io.txd.payload
+        }
+    }
+}
