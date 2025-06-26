@@ -1,18 +1,18 @@
 # Sapphire GPU Documentation: Commands (Serial Interface)
 [← Back to Sapphire GPU Documentation: Commands](./README.md)
 
-*Note: See the [command summary](./README.md#command-summary) for command numbers.*
-
 
 ## READ DMA: Use DMA To Read GPU Memory
 This command sets up DMA for reading GPU memory.
 
-Returns nothing.
+Code: 8.
 
 Parameter layout:
 | Offset | Size | Name       | Description
 | :----- | :--- | :--------- | :----------
 | 0      | alen | addr       | DMA start address
+
+Returns nothing.
 
 *Note: alen = 4 for a 32-bit GPU, and alen = 8 for a 64-bit GPU.*
 
@@ -22,18 +22,24 @@ Returns the read data as set up by the previous READ DMA command.
 More or less bytes may be read than the size hint.
 After the transfer for this command ends, the DMA is torn down.
 
+Code: 9.
+
 No parameters.
+
+Returns: the raw stream of bytes read.
 
 
 ## WRITE DMA: Use DMA To Write GPU Memory
 This command sets up DMA for writing GPU memory.
 
-Returns nothing.
+Code: 10.
 
 Parameter layout:
 | Offset | Size | Name       | Description
 | :----- | :--- | :--------- | :----------
 | 0      | alen | addr       | DMA start address
+
+Returns nothing.
 
 *Note: alen = 4 for a 32-bit GPU, and alen = 8 for a 64-bit GPU.*
 
@@ -43,6 +49,8 @@ Specifies the write data as set up by the previous WRITE DMA command.
 More or less bytes may be written than the size hint.
 After the transfer for this command ends, the DMA is torn down.
 
-Returns nothing.
+Code: 11.
 
 Parameters: the raw stream of bytes to write.
+
+Returns nothing.
