@@ -146,6 +146,12 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
 
     /** Current command. */
     val curCmd = RegInit(B(0, 8 bits))
+    when(
+        !io.chipSelect && isDmaSetup && (curCmd === 9 || curCmd === 11)
+    ) {
+        // After READ PAYLOAD or WRITE PAYLOAD, tear down DMA.
+        io.dma.setup.teardown := True
+    }
 
     /** Previous command. */
     val prevCmd = RegInit(B(0, 8 bits))
@@ -162,13 +168,13 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     /** Set of commands' return values. */
     val commandRet = for ((code, cmd) <- commands) yield {
         var retval: Data = null
-        when(pRxdValid && curCmd === B(code)) {
+        when(pRxdValid && curCmd === code) {
             if (cmd._1 == null) {
-                when(paramLen === U(0)) {
+                when(paramLen === 0) {
                     retval = cmd._2(null)
                 }
             } else {
-                when(paramLen === U((cmd._1.getBitsWidth + 7) / 8)) {
+                when(paramLen === (cmd._1.getBitsWidth + 7) / 8) {
                     retval = cmd._2(param)
                 }
             }
@@ -214,7 +220,7 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     } elsewhen (curCmd === 11) {
         io.dma.wdata.valid   := io.rxd.valid
         io.dma.wdata.payload := io.rxd.payload
-        when(!io.dma.wdata.ready) {
+        when(!io.dma.wdata.ready && io.chipSelect) {
             // Error if the DMA bus can't keep up.
             irqStatus(1) := True // dma_error interrupt.
         }
@@ -232,7 +238,7 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         // READ PAYLOAD command.
         io.dma.rdata.ready := io.txd.ready
         io.txd.payload     := io.dma.rdata.payload
-        when(!io.dma.rdata.valid) {
+        when(!io.dma.rdata.valid && io.chipSelect) {
             // Error if the DMA bus can't keep up.
             irqStatus(1) := True // dma_error interrupt.
         }
