@@ -1,4 +1,6 @@
 # Sapphire GPU Documentation: Serial Command Interface
+[← Back to Sapphire GPU Documentation: Interfaces](./README.md)
+
 The serial command interface refers to any configuration wherein Sapphire is connected to a host processor over an SPI-like serial bus.
 This interface is characterized by transactions that are either command or data, and comes in two variants: full-duplex and half-duplex.
 

@@ -1,4 +1,6 @@
 # Sapphire GPU Documentation: Commands (Serial Interface)
+[← Back to Sapphire GPU Documentation: Commands](./README.md)
+
 *Note: See the [command summary](./README.md#command-summary) for command numbers.*
 
 
@@ -11,7 +13,6 @@ Parameter layout:
 | Offset | Size | Name       | Description
 | :----- | :--- | :--------- | :----------
 | 0      | alen | addr       | DMA start address
-| alen   | alen | size       | DMA transfer size hint (optional)
 
 *Note: alen = 4 for a 32-bit GPU, and alen = 8 for a 64-bit GPU.*
 
@@ -33,7 +34,6 @@ Parameter layout:
 | Offset | Size | Name       | Description
 | :----- | :--- | :--------- | :----------
 | 0      | alen | addr       | DMA start address
-| alen   | alen | size       | DMA transfer size hint (optional)
 
 *Note: alen = 4 for a 32-bit GPU, and alen = 8 for a 64-bit GPU.*
 

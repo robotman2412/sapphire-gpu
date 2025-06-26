@@ -1,4 +1,6 @@
 # Sapphire GPU Documentation: Commands (General Management)
+[← Back to Sapphire GPU Documentation: Commands](./README.md)
+
 *Note: See the [command summary](./README.md#command-summary) for command numbers.*
 
 
@@ -26,7 +28,10 @@ No parameters.
 ## IRQ CLEAR: Clear Pending Interrupts
 Clears pending interrupts as seen in the [status registers](../structures.md#status-registers).
 
-Returns nothing.
+Returns value layout:
+| Offset | Size | Name       | Description
+| :----- | :--- | :--------- | :----------
+| 0      | 4    | irq_clear  | Bitmask of [interrupts](../interrupts.md) that were pending
 
 Parameter layout:
 | Offset | Size | Name       | Description

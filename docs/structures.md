@@ -1,8 +1,9 @@
 # Sapphire GPU Documentation: Data Structures
+[← Back to Sapphire GPU Documentation](./README.md)
 
 
 ## Status Registers
-The status registers serve as a quick overview of the general state and healthe of the GPU.
+The status registers serve as a quick overview of the general state and health of the GPU.
 | Offset | Size | Name       | Description
 | :----- | :--- | :--------- | :----------
 | 0      | 4    | irq_state  | Which [interrupts](./interrupts.md) are asserted, regardless of enable
@@ -10,17 +11,20 @@ The status registers serve as a quick overview of the general state and healthe 
 
 
 ## GPU Hardware Description
-The GPU hardware description struct conveys static information to the driver, both for things that the driver must support and things that are optional for the driver to support. This struct is constant for a given implementation of Sapphire.
+The GPU hardware description struct conveys static information to the driver, both for things that the driver must support and things that are optional for the driver to support.
+This struct is constant for a given implementation of Sapphire.
+It is returned by the [DESC](./cmd/management.md#desc-get-gpu-description-structure) command.
 | Offset | Size   | Name              | Description
 | :----- | :----- | :---------------- | :----------
 | 0      | 1      | gpu_major         | SEMVER major revision of the GPU
 | 1      | 1      | gpu_minor         | SEMVER minor revision of the GPU
-| 2      | 1      | gpu_minor         | SEMVER patch revision of the GPU
+| 2      | 1      | gpu_patch         | SEMVER patch revision of the GPU
 | 3      | 1      | scanout_count     | Number of scanout engines
 | 4      | 4      | irq_impl          | Bitset of implemented [interrupts](./interrupts.md)
 | 8      | 8      | ram_size          | Byte size of the GPU's RAM
 | 16     | 4      | required_features | Bitset of features that the driver is required to support
 | 24     | 4      | optional_features | Bitset of features that the driver may optionally support
+| 32     | 1      | coord_bits        | Number of bits used for pixel coordinates
 
 *Note: The SEMVER revision of the GPU also identifies the readability of this structure to older drivers.*
 
@@ -35,5 +39,6 @@ The bitfield optional_features:
 | Bit | Name     | Description
 | :-- | :------- | :----------
 | 0   | has_3d   | The GPU has support for 3D rendering
+| 1   | has_vcol | The GPU has support for vertex coloring
 
 

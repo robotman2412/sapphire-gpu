@@ -17,11 +17,8 @@ case class Ahb3ToDmaDUT(abits: BitCount, dbits: BitCount) extends Component {
         /** AHB-lite 3 bus. */
         val ahb = slave port AhbLite3(AhbLite3Config(abits.value, dbits.value))
 
-        /** Arbitrary stall of reading. */
-        val readStall = in port Bool()
-
-        /** Arbitrary stall of writing. */
-        val writeStall = in port Bool()
+        /** Arbitrary stall. */
+        val stall = in port Bool()
     }
 
     val ahb3ToDma = Ahb3ToDma(io.ahb.config)
@@ -32,12 +29,12 @@ case class Ahb3ToDmaDUT(abits: BitCount, dbits: BitCount) extends Component {
     // Simple dummy implementation of DMA bus.
     val dmaBusy  = RegInit(False)
     val dmaWrite = Reg(Bool())
-    dma.setup.setupReady    := !dmaBusy
-    dma.setup.teardownReady := dmaBusy
+    dma.setup.setupReady    := !dmaBusy && !io.stall
+    dma.setup.teardownReady := dmaBusy && !io.stall
     val dmaAddr = Reg(UInt(abits))
     dma.rdata.payload := dmaAddr.asBits
-    dma.rdata.valid   := !dmaWrite && dmaBusy && !io.readStall
-    dma.wdata.ready   := dmaWrite && dmaBusy && !io.writeStall
+    dma.rdata.valid   := !dmaWrite && dmaBusy && !io.stall
+    dma.wdata.ready   := dmaWrite && dmaBusy && !io.stall
     when(dma.setup.setup && dma.setup.setupReady) {
         dmaAddr  := dma.setup.addr
         dmaBusy  := True
@@ -57,8 +54,11 @@ object Ahb3ToDmaTest extends App {
             // Fork a process to generate the reset and the clock on the dut
             dut.clockDomain.forkStimulus(period = 10)
 
-            dut.io.readStall #= false
-            dut.io.writeStall #= false
+            dut.clockDomain.onSamplings {
+                dut.io.stall #= Random.nextInt(100) < 25
+            }
+
+            dut.io.stall #= false
             dut.io.ahb.HREADY #= false
             dut.clockDomain.waitSampling()
 
