@@ -59,10 +59,10 @@ object SapphireCfg {
 }
 
 case class SapphireCfg(
+    /** RAM size. */
+    ramSize: Long,
     /** Pixel coordinate bit width. */
     coordBits: Int = 12,
-    /** Virtual address bit width. */
-    vaddrBits: Int = 32,
     /** Pipeline topology configuration. */
     plCfg: SapphirePlCfg = SapphirePlCfg(),
     /** Enable 3D support. */
@@ -70,6 +70,9 @@ case class SapphireCfg(
     /** Enable vertex coloring. */
     hasVCol: Boolean = false
 ) {
+
+    /** Virtual address bit width. */
+    val vaddrBits = log2Up(ramSize)
 
     /** Number of bits used for pointers. */
     val ptrBits = if (vaddrBits > 32) 64 else 32
@@ -82,7 +85,7 @@ case class SapphireCfg(
         desc.gpuPatch                 := U"8'd1"
         desc.scanoutCount             := U"8'd0"
         desc.irqImpl                  := B"32'b0"
-        desc.ramSize                  := U"64'd0"
+        desc.ramSize                  := U(ramSize, 64 bits)
         desc.requiredFeatures.is64bit := Bool(vaddrBits > 32)
         desc.requiredFeatures._resvd0 := B"31'b0"
         desc.optionalFeatures.has3D   := Bool(has3D)

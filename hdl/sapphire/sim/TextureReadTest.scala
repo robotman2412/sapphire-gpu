@@ -50,7 +50,7 @@ case class TextureReadTestBench(cfg: SapphireCfg) extends Component {
 }
 
 object TextureReadTest extends App {
-    Config.sim.compile(TextureReadTestBench(SapphireCfg())).doSim(this.getClass.getSimpleName) { dut =>
+    Config.sim.compile(TextureReadTestBench(SapphireCfg(0))).doSim(this.getClass.getSimpleName) { dut =>
         // Fork a process to generate the reset and the clock on the dut
         dut.clockDomain.forkStimulus(period = 10)
         dut.io.uv.valid #= false

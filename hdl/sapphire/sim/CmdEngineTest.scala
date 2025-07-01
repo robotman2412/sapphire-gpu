@@ -62,7 +62,7 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
 
 object CmdEngineTest extends App {
     Config.sim
-        .compile(CmdEngineDut(SapphireCfg()))
+        .compile(CmdEngineDut(SapphireCfg(0)))
         .doSim(this.getClass.getSimpleName) { dut =>
             dut.io.chipSelect #= false
             dut.io.rxd.valid #= false
