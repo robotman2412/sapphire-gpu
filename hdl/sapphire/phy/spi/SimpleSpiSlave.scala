@@ -33,6 +33,15 @@ case class SimpleSpiSlave() extends Component {
         val miso = out port Bool()
     }
 
+    // The SPI bus signals are asynchronous to the FPGA clock domain (the whole
+    // design is one clock domain and these come straight off the master). They
+    // must be synchronized before use; sampling the raw pins and doing edge
+    // detection against a single flip-flop allows metastability to manifest as
+    // doubled/missed clock edges (shifted data) or corrupt samples (zeroes).
+    val sclk        = BufferCC(io.sclk, False)
+    val mosi        = BufferCC(io.mosi, False)
+    val chipSelect  = BufferCC(io.chipSelect, False)
+
     /** Transmit shift register. */
     val txbuf = Reg(Bits(8 bits))
     io.miso := txbuf(7)
@@ -40,30 +49,52 @@ case class SimpleSpiSlave() extends Component {
     /** SPI cycle count. */
     val cycle = RegInit(U(0, 3 bits))
 
-    /** Previous state of `sclk`. */
-    val pSclk = RegNext(io.sclk, False)
+    /** Previous (synchronized) state of `sclk`. */
+    val pSclk = RegNext(sclk, False)
 
-    /** Previous state of `chipSelect`. */
-    val pChipSelect = RegNext(io.chipSelect, False)
+    /** Previous (synchronized) state of `chipSelect`. */
+    val pChipSelect = RegNext(chipSelect, False)
+
+    /** Rising edge of the serial clock; the master samples MISO here. */
+    val sclkRise = sclk && !pSclk
+
+    /** Falling edge of the serial clock; the slave must update MISO here. */
+    val sclkFall = !sclk && pSclk
+
+    /** Rising edge of chip select. */
+    val csRise = chipSelect && !pChipSelect
 
     io.rxd.payload.setAsReg()
     io.rxd.valid.setAsReg()
     io.rxd.valid := False
     io.txd.ready := False
-    when(!io.chipSelect) {
+    when(!chipSelect) {
         cycle := U(0, 3 bits)
         io.rxd.payload.assignDontCare()
-    } elsewhen (io.chipSelect && !pChipSelect) {
+    } elsewhen (csRise) {
+        // Load the first byte so its MSB is presented on MISO before the first
+        // rising edge (CPHA=0 requires the leading bit to be valid up front).
         io.txd.ready := True
         txbuf        := io.txd.payload
-    } elsewhen (io.sclk && !pSclk) {
-        io.rxd.payload    := io.rxd.payload(6 downto 0) ## io.mosi
-        txbuf(7 downto 1) := txbuf(6 downto 0)
-        cycle             := cycle + U(1, 3 bits)
-        when(cycle === 7) {
-            io.rxd.valid := True
-            io.txd.ready := True
-            txbuf        := io.txd.payload
+    } otherwise {
+        // CPHA=0: sample MOSI on the rising edge...
+        when(sclkRise) {
+            io.rxd.payload := io.rxd.payload(6 downto 0) ## mosi
+            cycle          := cycle + U(1, 3 bits)
+            when(cycle === 7) {
+                io.rxd.valid := True
+            }
+        }
+        // ...and change MISO on the falling edge so the master samples a stable
+        // bit. When a byte boundary has just wrapped (cycle === 0) load the next
+        // byte instead of shifting, so its MSB appears on MISO.
+        when(sclkFall) {
+            when(cycle === 0) {
+                io.txd.ready := True
+                txbuf        := io.txd.payload
+            } otherwise {
+                txbuf := txbuf(6 downto 0) ## False
+            }
         }
     }
 }

@@ -47,18 +47,26 @@ object SimpleSpiSlaveTest extends App {
                 }
             }
 
-            dut.clockDomain.waitSampling(2)
+            // Half-period of the emulated SPI clock, in system clock cycles. The
+            // real SPI clock is far slower than the FPGA clock, so this must be
+            // comfortably larger than the input synchronizer depth for the slave
+            // to settle each bit before it is sampled.
+            val halfPeriod = 8
+
+            dut.clockDomain.waitSampling(halfPeriod)
             dut.io.chipSelect #= true
-            dut.clockDomain.waitSampling(2)
+            dut.clockDomain.waitSampling(halfPeriod)
 
             for (byte <- mosiData) {
                 var rxd = 0
                 for (bit <- 0 until 8) {
+                    // Master drives MOSI while the clock is low (CPHA=0)...
                     dut.io.mosi #= ((byte << bit) & 0x80) != 0
-                    dut.clockDomain.waitSampling(2)
+                    dut.clockDomain.waitSampling(halfPeriod)
+                    // ...and samples MISO on the rising edge.
                     dut.io.sclk #= true
                     rxd = (rxd << 1) | dut.io.miso.toBoolean.toInt
-                    dut.clockDomain.waitSampling(2)
+                    dut.clockDomain.waitSampling(halfPeriod)
                     dut.io.sclk #= false
                 }
                 println("MISO wire: 0x%02x".format(rxd))
