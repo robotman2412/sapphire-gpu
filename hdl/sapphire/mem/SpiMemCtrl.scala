@@ -100,16 +100,16 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
     val cycles = RegInit(U(0, 5 bits))
 
     /** Current FSM state. */
-    val state = RegInit(State.IDLE)
+    val state = out port RegInit(State.IDLE)
 
     /** Command / address buffer. */
-    val buffer = Reg(Bits(abits.value.max(8) bits))
+    val buffer = out port Reg(Bits(abits.value.max(8) bits))
 
     /** Current access is a write. */
     val isWrite = Reg(Bool())
 
     /** Address buffered at DMA setup time. */
-    val addr = Reg(UInt(abits))
+    val addr = out port Reg(UInt(abits))
 
     /** Size of the read buffer. */
     val readBufDepth = 3

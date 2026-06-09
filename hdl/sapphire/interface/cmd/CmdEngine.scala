@@ -5,10 +5,10 @@ package sapphire.interface.cmd
 
 import sapphire._
 import sapphire.util._
+import sapphire.dma._
 import scala.collection.mutable
 import spinal.core._
 import spinal.lib._
-import sapphire.dma.DmaBus
 
 /** Serial interface command engine. */
 case class CmdEngine(cfg: SapphireCfg) extends Component {
@@ -31,7 +31,13 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
 
         /** GPU memory DMA bus. */
         val dma = master port DmaBus(cfg.vaddrBits bits)
+
+        /** Debug register read bus. */
+        val debug = master port DebugBus()
     }
+
+    // Default debug bus drive; overridden by the DEBUG READ command.
+    io.debug.index := U(0).resized
 
     /** DMA is currently set up. */
     val isDmaSetup = RegInit(False)
@@ -64,7 +70,7 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
                 var params = null.asInstanceOf[P]
                 if (paramType != null) {
                     params = paramType()
-                    params.assignFromBits(data.resized)
+                    params.assignFromBits(data.resize(params.getBitsWidth bits))
                 }
                 val tmp    = function(params)
                 if (tmp != null) tmp.asBits else null
@@ -130,6 +136,11 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         io.dma.setup.addr  := addr.resized
         irqOnDmaReady      := True
         null
+    }
+    // DEBUG READ: Expose internal architectural state for debug purposes.
+    addCommand(12, UInt(16 bits)) { reg =>
+        io.debug.index := reg
+        io.debug.data
     }
 
     private val paramBits =

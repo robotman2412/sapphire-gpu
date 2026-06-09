@@ -39,6 +39,9 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
     io.irqOut               := cmdEngine.io.irqOut
     cmdEngine.io.irqIn      := io.irqIn
 
+    // Stub debug bus: return the requested index as the register value.
+    cmdEngine.io.debug.data := cmdEngine.io.debug.index.asBits.resized
+
     // Simple dummy implementation of DMA bus.
     val dmaBusy  = RegInit(False)
     val dmaWrite = Reg(Bool())
@@ -62,7 +65,7 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
 
 object CmdEngineTest extends App {
     Config.sim
-        .compile(CmdEngineDut(SapphireCfg(0)))
+        .compile(CmdEngineDut(SapphireCfg(0x100000000L)))
         .doSim(this.getClass.getSimpleName) { dut =>
             dut.io.chipSelect #= false
             dut.io.rxd.valid #= false
