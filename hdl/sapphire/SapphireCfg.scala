@@ -84,7 +84,7 @@ case class SapphireCfg(
         desc.gpuMinor                 := U"8'd0"
         desc.gpuPatch                 := U"8'd1"
         desc.scanoutCount             := U"8'd0"
-        desc.irqImpl                  := B"32'b0"
+        desc.irqImpl                  := B"32'b0011"
         desc.ramSize                  := U(ramSize, 64 bits)
         desc.requiredFeatures.is64bit := Bool(vaddrBits > 32)
         desc.requiredFeatures._resvd0 := B"31'b0"

@@ -1,4 +1,4 @@
-package sapphire.dma
+package sapphire.mem
 
 // SPDX-License-Identifier: CERN-OHL-P-2.0
 // SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
@@ -6,6 +6,7 @@ package sapphire.dma
 import spinal.core._
 import spinal.lib._
 import sapphire.phy.spi._
+import sapphire.dma.DmaBus
 
 /** SPI memory controller state. */
 object SpiMemCtrl {

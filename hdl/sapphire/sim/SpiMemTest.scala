@@ -7,6 +7,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import sapphire.dma._
+import sapphire.mem._
 import sapphire.phy.spi._
 import spinal.lib.sim.StreamMonitor
 import spinal.lib.sim.StreamDriver
