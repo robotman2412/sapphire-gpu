@@ -32,7 +32,7 @@ object ColorMath {
     private def expand(v: UInt, width: UInt): UInt = width.mux(
         default -> v(0).asUInt   * U"8'b_11111111_000000",
         M"001"  -> v(1 downto 0) * U"8'b_01010101_000000",
-        M"010"  -> v(2 downto 0) * U"8'b_00100100_000000",
+        M"010"  -> v(2 downto 0) * U"8'b_00100100_100000",
         M"011"  -> v(3 downto 0) * U"8'b_00010001_000000",
         M"100"  -> v(4 downto 0) * U"8'b_00001000_010000",
         M"101"  -> v(5 downto 0) * U"8'b_00000100_000100",
