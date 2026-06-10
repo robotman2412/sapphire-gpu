@@ -81,9 +81,6 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     /** Interrupt status register. */
     val irqStatus = RegInit(B(0, 32 bits))
 
-    /** Interrupt status latched when a command that reads it is run. */
-    val irqStatusLatched = Reg(Bits(32 bits))
-
     /** Interrupt enable register. */
     val irqEnable = RegInit(B(0, 32 bits))
     io.irqOut := (irqStatus & irqEnable) =/= 0
@@ -106,9 +103,8 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     addCommand(2) { _ => cfg.descStruct }
     // IRQ CLEAR: Clear Pending Interrupts.
     addCommand(3, Bits(32 bits)) { clear =>
-        irqStatusLatched := irqStatus
-        irqStatus        := irqStatus & ~clear
-        irqStatusLatched
+        irqStatus := irqStatus & ~clear
+        irqStatus
     }
     // IRQ ENABLE: Select Enabled Interrupts.
     addCommand(4, Bits(32 bits)) { mask =>
@@ -176,6 +172,9 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         isCmd := True
     }
 
+    val latchResp = Bool()
+    latchResp := False
+
     /** Set of commands' return values. */
     val commandRet = for ((code, cmd) <- commands) yield {
         var retval: Data = null
@@ -183,10 +182,12 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
             if (cmd._1 == null) {
                 when(paramLen === 0) {
                     retval = cmd._2(null)
+                    latchResp := True
                 }
             } else {
                 when(paramLen === (cmd._1.getBitsWidth + 7) / 8) {
                     retval = cmd._2(param)
+                    latchResp := True
                 }
             }
         }
@@ -197,7 +198,7 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         commandRet.map(x => if (x._2 == null) 0 else x._2.getBitsWidth).max
 
     /** Combined command return value. */
-    val resp = Bits(respBits bits)
+    val resp = Reg(Bits(respBits bits))
 
     /** How many response bytes have been sent so far. */
     val respIndex = Reg(UInt(log2Up((resp.getBitsWidth + 7) / 8) bits))
@@ -205,19 +206,13 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         respIndex := U(0)
     }
 
-    /** How many response bytes there are to send. */
-    val respLen = Reg(UInt(respIndex.getBitsWidth bits))
-
-    /** Whether there is any response data left to send. */
-    val hasResp = Reg(Bool())
-
-    resp := B(0, respBits bits)
-    for ((code, cmdResp) <- commandRet) {
-        when(prevCmd === code) {
+    when(latchResp) {
+        resp := B(0, respBits bits)
+        for ((code, cmdResp) <- commandRet) {
             if (cmdResp != null) {
-                resp(cmdResp.getBitsWidth - 1 downto 0) := cmdResp.asBits
-                respLen                                 := U((cmdResp.getBitsWidth + 7) / 8)
-                hasResp                                 := True
+                when(curCmd === code) {
+                    resp := cmdResp.asBits.resized
+                }
             }
         }
     }
@@ -245,21 +240,19 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     // Response data logic.
     io.txd.payload     := B(0)
     io.dma.rdata.ready := False
-    when(prevCmd === 9) {
-        // READ PAYLOAD command.
-        io.dma.rdata.ready := io.txd.ready
-        io.txd.payload     := io.dma.rdata.payload
-        when(!io.dma.rdata.valid && io.chipSelect) {
-            // Error if the DMA bus can't keep up.
-            irqStatus(1) := True // dma_error interrupt.
-        }
-    } elsewhen (hasResp) {
-        // Other commands' response data.
-        when(io.txd.ready && respIndex === respLen) {
-            hasResp := False
+    when(io.chipSelect) {
+        when(prevCmd === 9) {
+            // READ PAYLOAD command.
+            io.dma.rdata.ready := io.txd.ready
+            io.txd.payload     := io.dma.rdata.payload
+            when(!io.dma.rdata.valid && io.txd.ready && io.chipSelect) {
+                // Error if the DMA bus can't keep up.
+                irqStatus(1) := True // dma_error interrupt.
+            }
         } elsewhen (io.txd.ready) {
-            respIndex := respIndex + 1
+            // Other commands' response data.
+            respIndex      := respIndex + 1
+            io.txd.payload := resp(respIndex * 8, 8 bits)
         }
-        io.txd.payload := resp(respIndex * 8, 8 bits)
     }
 }

@@ -78,7 +78,7 @@ object CmdEngineTest extends App {
             def runCmd(data: Seq[Int]) = {
                 dut.clockDomain.waitSampling()
                 dut.io.chipSelect #= true
-                dut.clockDomain.waitSampling(2)
+                // dut.clockDomain.waitSampling(2)
                 dut.io.rxd.valid #= true
                 for (byte <- data) {
                     dut.io.rxd.payload #= byte
@@ -93,7 +93,7 @@ object CmdEngineTest extends App {
             def getResp(len: Int) = {
                 dut.clockDomain.waitSampling()
                 dut.io.chipSelect #= true
-                dut.clockDomain.waitSampling(2)
+                // dut.clockDomain.waitSampling(2)
                 dut.io.txd.ready #= true
                 val resp = for (_ <- 0 until len) yield {
                     dut.clockDomain.waitSampling()
@@ -105,6 +105,37 @@ object CmdEngineTest extends App {
                 resp
             }
 
+            // DESC
+            runCmd(Seq(0x02))
+            val desc = getResp(32)
+            println("Ver: %d.%d.%d".format(desc(0), desc(1), desc(2)))
+            println("#Scanout: %d".format(desc(3)))
+            println(
+                "Irq impl: 0x%02x%02x%02x%02x"
+                    .format(desc(7), desc(6), desc(5), desc(4))
+            )
+            println(
+                "Ram size: 0x%02x%02x%02x%02x%02x%02x%02x%02x"
+                    .format(
+                        desc(15),
+                        desc(14),
+                        desc(13),
+                        desc(12),
+                        desc(11),
+                        desc(10),
+                        desc(9),
+                        desc(8)
+                    )
+            )
+            println(
+                "Reqd feat: 0x%02x%02x%02x%02x"
+                    .format(desc(19), desc(18), desc(17), desc(16))
+            )
+            println(
+                "Opt feat: 0x%02x%02x%02x%02x"
+                    .format(desc(23), desc(22), desc(21), desc(20))
+            )
+            println("#Coord: %d".format(desc(24)))
             // IRQ ENABLE: 0x00000003
             runCmd(Seq(0x04, 0x03, 0x00, 0x00, 0x00))
             // WRITE DMA: 0xf00dbabe
@@ -113,10 +144,10 @@ object CmdEngineTest extends App {
             dut.clockDomain.waitSamplingWhere(dut.io.irqOut.toBoolean)
             // IRQ CLEAR: 0x00000003
             runCmd(Seq(0x03, 0x03, 0x00, 0x00, 0x00))
-            val resp = getResp(4)
+            val irq  = getResp(4)
             println(
-                "Resp: %02x %02x %02x %02x"
-                    .format(resp(0), resp(1), resp(2), resp(3))
+                "Irq status: 0x%02x%02x%02x%02x"
+                    .format(irq(3), irq(2), irq(1), irq(0))
             )
             // WRITE PAYLOAD: {0x01, 0x02, 0x03, 0x04, 0x05}
             runCmd(Seq(0x0b, 0x01, 0x02, 0x03, 0x04, 0x05))
