@@ -36,6 +36,9 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         val debug = master port DebugBus()
     }
 
+    val pChipSelect       = RegNext(io.chipSelect)
+    val chipSelectFalling = !io.chipSelect && pChipSelect
+
     // Default debug bus drive; overridden by the DEBUG READ command.
     io.debug.index := U(0).resized
 
@@ -90,10 +93,42 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
 
     /** Assert dma_ready interrupt when the DMA bus becomes ready. */
     val irqOnDmaReady = RegInit(False)
-    when(irqOnDmaReady && (io.dma.rdata.valid || io.dma.wdata.ready)) {
+    when(
+        irqOnDmaReady && !io.dma.setup.setup && (io.dma.rdata.valid || io.dma.wdata.ready)
+    ) {
         irqOnDmaReady := False
         irqStatus(0)  := True // dma_ready interrupt.
     }
+
+    // --- Debug latch triggers -------------------------------------------
+    // Each event Bool pulses for one cycle when its condition occurs. The
+    // enabled subset (latchTriggers) drives io.debug.latch, which snapshots
+    // the whole debug register file. The bit order of the combined vector
+    // matches the SAPPHIRE_DBG_LATCH_* macros in the C driver.
+
+    /** DEBUG READ command byte was received. */
+    val evtDbgCmd = Bool()
+
+    /** A non-DEBUG-READ command byte was received. */
+    val evtCmdByte = Bool()
+
+    /** A DMA error was flagged. */
+    val evtDmaErr = Bool()
+    evtDbgCmd  := False
+    evtCmdByte := False
+    evtDmaErr  := False
+
+    /** A DMA data byte was transferred. */
+    val evtDmaByte = io.dma.wdata.fire || io.dma.rdata.fire
+
+    /** An enabled interrupt was newly raised (rising edge of irqOut). */
+    val evtIrq = io.irqOut && !RegNext(io.irqOut, False)
+
+    /** Enabled debug-latch triggers; resets to DBGCMD. */
+    val latchTriggers = RegInit(B(1, 5 bits))
+    io.debug.latch :=
+        ((evtIrq ## evtDmaByte ## evtDmaErr ## evtCmdByte ## evtDbgCmd) &
+            latchTriggers).orR
 
     // NOP: No Operation
     addCommand(0) { _ => null }
@@ -136,6 +171,16 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         io.debug.index := reg
         io.debug.data
     }
+    // DEBUG TRIGGERS: Select which events latch the debug registers.
+    addCommand(13, Bits(8 bits)) { mask =>
+        latchTriggers := mask.resized
+        null
+    }
+    // DMA END: Tear down DMA transfer.
+    addCommand(14) { _ =>
+        io.dma.setup.teardown := isDmaSetup
+        null
+    }
 
     private val paramBits =
         commands.map(x => if (x._2._1 == null) 0 else x._2._1.getBitsWidth).max
@@ -145,7 +190,7 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
 
     /** How many parameter bytes have been received so far. */
     val paramLen = RegInit(U(0, log2Up(param.getBitsWidth / 8 + 1) bits))
-    when(!io.chipSelect) {
+    when(chipSelectFalling) {
         paramLen := U(0)
     }
 
@@ -154,13 +199,13 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
 
     /** Previous command. */
     val prevCmd = RegInit(B(0, 8 bits))
-    when(!io.chipSelect) {
+    when(chipSelectFalling) {
         prevCmd := curCmd
     }
 
     /** Currently receiving the command. */
     val isCmd = RegInit(True)
-    when(!io.chipSelect) {
+    when(chipSelectFalling) {
         isCmd := True
     }
 
@@ -192,13 +237,13 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     /** Combined command return value. */
     val nextResp = Reg(Bits(respBits bits))
     val resp     = Reg(Bits(respBits bits))
-    when(!io.chipSelect) {
+    when(chipSelectFalling) {
         resp := nextResp
     }
 
     /** How many response bytes have been sent so far. */
     val respIndex = Reg(UInt(8 bits))
-    when(!io.chipSelect) {
+    when(chipSelectFalling) {
         respIndex := U(0)
     }
 
@@ -213,13 +258,6 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         }
     }
 
-    when(
-        !io.chipSelect && isDmaSetup && (prevCmd === 9 || prevCmd === 11)
-    ) {
-        // After READ PAYLOAD or WRITE PAYLOAD, tear down DMA.
-        io.dma.setup.teardown := True
-    }
-
     // Receive data logic.
     io.dma.wdata.valid := False
     io.dma.wdata.payload.assignDontCare()
@@ -231,12 +269,18 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
             }
             curCmd := io.rxd.payload
             isCmd  := False
+            when(io.rxd.payload === 12) {
+                evtDbgCmd := True
+            } otherwise {
+                evtCmdByte := True
+            }
         } elsewhen (curCmd === 11) {
             io.dma.wdata.valid   := io.rxd.valid
             io.dma.wdata.payload := io.rxd.payload
             when(!io.dma.wdata.ready && io.rxd.valid && io.chipSelect) {
                 // Error if the DMA bus can't keep up.
                 irqStatus(1) := True // dma_error interrupt.
+                evtDmaErr    := True
             }
         } elsewhen (io.rxd.valid) {
             param(paramLen * 8, 8 bits) := io.rxd.payload
@@ -261,6 +305,7 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
             when(!io.dma.rdata.valid && io.txd.ready && io.chipSelect) {
                 // Error if the DMA bus can't keep up.
                 irqStatus(1) := True // dma_error interrupt.
+                evtDmaErr    := True
             }
         } elsewhen (prevCmd === 2) {
             // DESC command.

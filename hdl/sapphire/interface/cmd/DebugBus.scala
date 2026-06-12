@@ -10,6 +10,9 @@ import spinal.lib._
   * returns the selected register value combinationally. There is no handshake:
   * all sources are stable registers / wires, and the master latches the
   * response into its own response machinery.
+  *
+  * The master may also pulse `latch` to snapshot every debug register at once,
+  * freezing a coherent view of a transient moment for later read-out.
   */
 case class DebugBus(indexBits: BitCount = 16 bits, dataBits: BitCount = 32 bits)
     extends Bundle with IMasterSlave {
@@ -17,10 +20,13 @@ case class DebugBus(indexBits: BitCount = 16 bits, dataBits: BitCount = 32 bits)
     /** Requested debug register index. */
     val index = UInt(indexBits)
 
+    /** Snapshot all debug registers this cycle. */
+    val latch = Bool()
+
     /** Value of the selected debug register, zero-extended. */
     val data = Bits(dataBits)
 
     override def asMaster() = {
-        out(index); in(data)
+        out(index); out(latch); in(data)
     }
 }

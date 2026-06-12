@@ -106,7 +106,7 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
     val buffer = out port Reg(Bits(abits.value.max(8) bits))
 
     /** Current access is a write. */
-    val isWrite = Reg(Bool())
+    val isWrite = out port Reg(Bool())
 
     /** Address buffered at DMA setup time. */
     val addr = out port Reg(UInt(abits))
@@ -115,7 +115,7 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
     val readBufDepth = 3
 
     /** How much capacity for reads is in the read buffer. */
-    val readCap = RegInit(U(readBufDepth, log2Up(readBufDepth) bits))
+    val readCap = out port RegInit(U(readBufDepth, log2Up(readBufDepth) bits))
 
     /** Read data buffer. */
     val fifo = StreamFifo(Bits(8 bits), depth = readBufDepth)

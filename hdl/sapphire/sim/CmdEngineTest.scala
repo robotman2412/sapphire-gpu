@@ -5,6 +5,7 @@ package sapphire.sim
 
 import sapphire._
 import sapphire.interface.cmd.CmdEngine
+import sapphire.interface.cmd.DebugRegFile
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
@@ -28,6 +29,10 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
 
         /** Internal interrupt inputs. */
         val irqIn = in port Bits(32 bits)
+
+        /** Driveable debug taps, exposed at debug register indices 0 and 1. */
+        val dbgTap0 = in port Bits(32 bits)
+        val dbgTap1 = in port Bits(8 bits)
     }
 
     val cmdEngine = CmdEngine(cfg)
@@ -39,8 +44,11 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
     io.irqOut               := cmdEngine.io.irqOut
     cmdEngine.io.irqIn      := io.irqIn
 
-    // Stub debug bus: return the requested index as the register value.
-    cmdEngine.io.debug.data := cmdEngine.io.debug.index.asBits.resized
+    // Real debug register file so the latch behaviour can be exercised.
+    val debugRegs = DebugRegFile(Seq(32 bits, 8 bits))
+    debugRegs.io.regs(0) := io.dbgTap0
+    debugRegs.io.regs(1) := io.dbgTap1
+    cmdEngine.io.debug <> debugRegs.io.debug
 
     // Simple dummy implementation of DMA bus.
     val dmaBusy  = RegInit(False)
@@ -71,6 +79,8 @@ object CmdEngineTest extends App {
             dut.io.rxd.valid #= false
             dut.io.txd.ready #= false
             dut.io.irqIn #= 0
+            dut.io.dbgTap0 #= 0
+            dut.io.dbgTap1 #= 0
 
             // Fork a process to generate the reset and the clock on the dut
             dut.clockDomain.forkStimulus(period = 10)
@@ -151,6 +161,55 @@ object CmdEngineTest extends App {
             )
             // WRITE PAYLOAD: {0x01, 0x02, 0x03, 0x04, 0x05}
             runCmd(Seq(0x0b, 0x01, 0x02, 0x03, 0x04, 0x05))
+            dut.clockDomain.waitSampling(10)
+
+            // ---- Debug latch feature ---------------------------------------
+
+            // Read 32-bit debug register `reg` (DEBUG READ command).
+            def readDbg(reg: Int): Long = {
+                runCmd(Seq(0x0c, reg & 0xff, (reg >> 8) & 0xff))
+                val r = getResp(4)
+                (r(0).toLong | (r(1).toLong << 8) |
+                    (r(2).toLong << 16) | (r(3).toLong << 24)) & 0xffffffffL
+            }
+            // Select debug latch triggers (DEBUG TRIGGERS command).
+            def setTriggers(mask: Int) = runCmd(Seq(0x0d, mask & 0xff))
+
+            // Default trigger is DBGCMD: a DEBUG READ snapshots the live taps,
+            // so the read returns whatever the tap held at command time.
+            dut.io.dbgTap0 #= 0x11223344L
+            dut.clockDomain.waitSampling(2)
+            val a = readDbg(0)
+            println("Latch A (DBGCMD): 0x%08x".format(a))
+            assert(a == 0x11223344L, "DBGCMD should snapshot the current tap value")
+
+            // Disable all triggers: the snapshot must now freeze. Changing the
+            // tap and reading again must still return the previously latched value.
+            setTriggers(0x00)
+            dut.io.dbgTap0 #= 0x55667788L
+            dut.clockDomain.waitSampling(2)
+            val b = readDbg(0)
+            println("Latch B (frozen): 0x%08x".format(b))
+            assert(b == 0x11223344L, "with no triggers the snapshot must stay frozen")
+
+            // Event trigger: snapshot must update when the selected event fires
+            // and then stay frozen across the subsequent DEBUG READ. CMDBYTE is
+            // used here (deterministic); every event shares the same combine
+            // logic (events & latchTriggers), so this also covers DMABYTE/DMAERR/IRQ.
+            setTriggers(0x02) // SAPPHIRE_DBG_LATCH_CMDBYTE
+            dut.io.dbgTap0 #= 0x99aabbccL
+            dut.clockDomain.waitSampling(2)
+            // A NOP is a non-DEBUG command byte, so it latches the current tap.
+            runCmd(Seq(0x00))
+            // Change the tap afterwards; the frozen value must survive (the
+            // following DEBUG READ is command 12, which CMDBYTE does not match).
+            dut.io.dbgTap0 #= 0x0badf00dL
+            dut.clockDomain.waitSampling(2)
+            val c = readDbg(0)
+            println("Latch C (CMDBYTE): 0x%08x".format(c))
+            assert(c == 0x99aabbccL, "CMDBYTE should latch the tap when a command byte is read")
+
+            println("Debug latch tests passed.")
             dut.clockDomain.waitSampling(10)
         }
 }
