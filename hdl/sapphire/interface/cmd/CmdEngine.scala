@@ -99,8 +99,6 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     addCommand(0) { _ => null }
     // STATUS: Read Status Registers.
     addCommand(1) { _ => irqStatus ## irqEnable }
-    // DESC: Get GPU Description Structure.
-    addCommand(2) { _ => cfg.descStruct }
     // IRQ CLEAR: Clear Pending Interrupts.
     addCommand(3, Bits(32 bits)) { clear =>
         irqStatus := irqStatus & ~clear
@@ -153,12 +151,6 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
 
     /** Current command. */
     val curCmd = RegInit(B(0, 8 bits))
-    when(
-        !io.chipSelect && isDmaSetup && (curCmd === 9 || curCmd === 11)
-    ) {
-        // After READ PAYLOAD or WRITE PAYLOAD, tear down DMA.
-        io.dma.setup.teardown := True
-    }
 
     /** Previous command. */
     val prevCmd = RegInit(B(0, 8 bits))
@@ -198,42 +190,59 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         commandRet.map(x => if (x._2 == null) 0 else x._2.getBitsWidth).max
 
     /** Combined command return value. */
-    val resp = Reg(Bits(respBits bits))
+    val nextResp = Reg(Bits(respBits bits))
+    val resp     = Reg(Bits(respBits bits))
+    when(!io.chipSelect) {
+        resp := nextResp
+    }
 
     /** How many response bytes have been sent so far. */
-    val respIndex = Reg(UInt(log2Up((resp.getBitsWidth + 7) / 8) bits))
+    val respIndex = Reg(UInt(8 bits))
     when(!io.chipSelect) {
         respIndex := U(0)
     }
 
     when(latchResp) {
-        resp := B(0, respBits bits)
+        nextResp := B(0, respBits bits)
         for ((code, cmdResp) <- commandRet) {
             if (cmdResp != null) {
                 when(curCmd === code) {
-                    resp := cmdResp.asBits.resized
+                    nextResp := cmdResp.asBits.resized
                 }
             }
         }
     }
 
+    when(
+        !io.chipSelect && isDmaSetup && (prevCmd === 9 || prevCmd === 11)
+    ) {
+        // After READ PAYLOAD or WRITE PAYLOAD, tear down DMA.
+        io.dma.setup.teardown := True
+    }
+
     // Receive data logic.
     io.dma.wdata.valid := False
     io.dma.wdata.payload.assignDontCare()
-    when(io.rxd.valid && isCmd) {
-        curCmd := io.rxd.payload
-        isCmd  := False
-    } elsewhen (curCmd === 11) {
-        io.dma.wdata.valid   := io.rxd.valid
-        io.dma.wdata.payload := io.rxd.payload
-        when(!io.dma.wdata.ready && io.chipSelect) {
-            // Error if the DMA bus can't keep up.
-            irqStatus(1) := True // dma_error interrupt.
-        }
-    } elsewhen (io.rxd.valid) {
-        param(paramLen * 8, 8 bits) := io.rxd.payload
-        when(paramLen =/= param.getBitsWidth / 8 + 1) {
-            paramLen := paramLen + 1
+    when(io.chipSelect) {
+        when(io.rxd.valid && isCmd) {
+            when(io.rxd.payload === 9 || io.rxd.payload === 11) {
+                // Clear dma_ready interrupt on READ PAYLOAD or WRITE PAYLOAD command.
+                irqStatus(0) := False
+            }
+            curCmd := io.rxd.payload
+            isCmd  := False
+        } elsewhen (curCmd === 11) {
+            io.dma.wdata.valid   := io.rxd.valid
+            io.dma.wdata.payload := io.rxd.payload
+            when(!io.dma.wdata.ready && io.rxd.valid && io.chipSelect) {
+                // Error if the DMA bus can't keep up.
+                irqStatus(1) := True // dma_error interrupt.
+            }
+        } elsewhen (io.rxd.valid) {
+            param(paramLen * 8, 8 bits) := io.rxd.payload
+            when(paramLen =/= param.getBitsWidth / 8 + 1) {
+                paramLen := paramLen + 1
+            }
         }
     }
 
@@ -241,6 +250,10 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     io.txd.payload     := B(0)
     io.dma.rdata.ready := False
     when(io.chipSelect) {
+        when(io.txd.ready) {
+            respIndex := respIndex + 1
+        }
+
         when(prevCmd === 9) {
             // READ PAYLOAD command.
             io.dma.rdata.ready := io.txd.ready
@@ -249,9 +262,12 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
                 // Error if the DMA bus can't keep up.
                 irqStatus(1) := True // dma_error interrupt.
             }
-        } elsewhen (io.txd.ready) {
+        } elsewhen (prevCmd === 2) {
+            // DESC command.
+            val desc = cfg.descStruct.asBits
+            io.txd.payload := desc(respIndex * 8, 8 bits)
+        } otherwise {
             // Other commands' response data.
-            respIndex      := respIndex + 1
             io.txd.payload := resp(respIndex * 8, 8 bits)
         }
     }
