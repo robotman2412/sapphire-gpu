@@ -142,7 +142,7 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     // IRQ ENABLE: Select Enabled Interrupts.
     addCommand(4, Bits(32 bits)) { mask =>
         irqEnable := mask
-        null
+        irqEnable
     }
     // READ DMA: Use DMA To Read GPU Memory
     addCommand(8, UInt(cfg.ptrBits bits)) { addr =>
