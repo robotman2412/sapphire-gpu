@@ -77,6 +77,7 @@ object CmdEngineTest extends App {
         .doSim(this.getClass.getSimpleName) { dut =>
             dut.io.chipSelect #= false
             dut.io.rxd.valid #= false
+            dut.io.txd.peek #= false
             dut.io.txd.ready #= false
             dut.io.irqIn #= 0
             dut.io.dbgTap0 #= 0
@@ -146,6 +147,42 @@ object CmdEngineTest extends App {
                     .format(desc(23), desc(22), desc(21), desc(20))
             )
             println("#Coord: %d".format(desc(24)))
+
+            // ---- Vacuum peek/commit contract (split-read fix) --------------
+            // The dummy DMA streams an incrementing byte (low 8 bits of addr).
+            // `peek` must make data valid without consuming it; only `ready`
+            // (commit) advances the stream. This is what lets a split read keep
+            // a prefetched-but-unsent byte instead of dropping it.
+            runCmd(Seq(0x08, 0x40, 0x00, 0x00, 0x00)) // READ DMA @ 0x40
+            runCmd(Seq(0x09))                         // READ PAYLOAD -> prevCmd = 9
+
+            dut.clockDomain.waitSampling()
+            dut.io.chipSelect #= true
+            dut.io.txd.peek #= true
+            dut.io.txd.ready #= false
+            dut.clockDomain.waitSampling(3)
+            val held = dut.io.txd.payload.toInt
+            dut.clockDomain.waitSampling(3)
+            assert(
+                dut.io.txd.payload.toInt == held,
+                "peek must not advance the read stream (would drop a byte)"
+            )
+            // Commit advances the stream by exactly one.
+            dut.io.txd.ready #= true
+            dut.clockDomain.waitSampling()
+            dut.io.txd.peek #= false
+            dut.io.txd.ready #= false
+            dut.clockDomain.waitSampling(2)
+            val advanced = dut.io.txd.payload.toInt
+            assert(
+                advanced == ((held + 1) & 0xff),
+                "commit must advance the read stream by one"
+            )
+            println("Peek held 0x%02x, commit advanced to 0x%02x".format(held, advanced))
+            dut.io.chipSelect #= false
+            dut.clockDomain.waitSampling()
+            runCmd(Seq(0x0e)) // DMA TEARDOWN
+
             // IRQ ENABLE: 0x00000003
             runCmd(Seq(0x04, 0x03, 0x00, 0x00, 0x00))
             // WRITE DMA: 0xf00dbabe

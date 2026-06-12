@@ -58,6 +58,7 @@ case class SimpleSpiSlave() extends Component {
     io.rxd.payload.setAsReg()
     io.rxd.valid.setAsReg()
     io.rxd.valid := False
+    io.txd.peek  := False
     io.txd.ready := False
     when(!io.chipSelect) {
         cycle := U(0, 3 bits)
@@ -65,8 +66,10 @@ case class SimpleSpiSlave() extends Component {
     } elsewhen (csRise) {
         // Load the first byte so its MSB is presented on MISO before the first
         // rising edge (CPHA=0 requires the leading bit to be valid up front).
-        io.txd.ready := True
-        txbuf        := io.txd.payload
+        // Peek only: the byte is not consumed until it is actually clocked out,
+        // so a transfer that ends here does not drop it.
+        io.txd.peek := True
+        txbuf       := io.txd.payload
     } otherwise {
         // CPHA=0: sample MOSI on the rising edge...
         when(sclkRise) {
@@ -75,14 +78,20 @@ case class SimpleSpiSlave() extends Component {
             when(cycle === 7) {
                 io.rxd.valid := True
             }
+            // First bit of the byte now in `txbuf` is being clocked out; commit
+            // to consuming it (chip select is confirmed active for this byte).
+            when(cycle === 0) {
+                io.txd.ready := True
+            }
         }
         // ...and change MISO on the falling edge so the master samples a stable
         // bit. When a byte boundary has just wrapped (cycle === 0) load the next
-        // byte instead of shifting, so its MSB appears on MISO.
+        // byte instead of shifting, so its MSB appears on MISO. Peek only; the
+        // commit happens above when this byte's first bit is clocked out.
         when(sclkFall) {
             when(cycle === 0) {
-                io.txd.ready := True
-                txbuf        := io.txd.payload
+                io.txd.peek := True
+                txbuf       := io.txd.payload
             } otherwise {
                 txbuf := txbuf(6 downto 0) ## False
             }

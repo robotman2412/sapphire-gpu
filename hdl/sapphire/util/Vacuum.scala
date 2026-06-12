@@ -16,25 +16,30 @@ case class Vacuum[T <: Data](DType: HardType[T])
     /** Data to be received when ready. */
     val payload = DType()
 
+    /** Data must be valid this cycle, but is not yet consumed. */
+    val peek = Bool()
+
     /** Will now receive data. */
     val ready = Bool()
 
     override def asMaster() = {
-        out(payload); in(ready)
+        out(payload); in(peek); in(ready)
     }
 
     def toStream(underflow: Bool): Stream[T] = {
         val stream = Stream(DType()).setCompositeName(this, "toStream", true)
         if (underflow != null) {
-            underflow := ready && !stream.valid
+            underflow := peek && !stream.valid
         }
         stream.payload := payload
+        peek  := stream.ready
         ready := stream.ready
         stream
     }
 
     def connectFrom(that: Vacuum[T]): Vacuum[T] = {
         that.ready   := this.ready
+        that.peek    := this.peek
         this.payload := that.payload
         that
     }

@@ -237,13 +237,11 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
     /** Combined command return value. */
     val nextResp = Reg(Bits(respBits bits))
     val resp     = Reg(Bits(respBits bits))
-    when(chipSelectFalling) {
-        resp := nextResp
-    }
 
     /** How many response bytes have been sent so far. */
     val respIndex = Reg(UInt(8 bits))
-    when(chipSelectFalling) {
+    when(!io.chipSelect) {
+        resp      := nextResp
         respIndex := U(0)
     }
 
@@ -302,8 +300,9 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
             // READ PAYLOAD command.
             io.dma.rdata.ready := io.txd.ready
             io.txd.payload     := io.dma.rdata.payload
-            when(!io.dma.rdata.valid && io.txd.ready && io.chipSelect) {
-                // Error if the DMA bus can't keep up.
+            when(!io.dma.rdata.valid && io.txd.peek && io.chipSelect) {
+                // Error if the DMA bus can't keep up: the slave needs a byte to
+                // send (peek) but the backend has none.
                 irqStatus(1) := True // dma_error interrupt.
                 evtDmaErr    := True
             }
