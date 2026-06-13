@@ -149,14 +149,20 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
     when(settings.fullDuplex && Bool(cfg.dynDuplex)) {
         // Shift amount depends on the number of bits.
         shiftCorrectedMiso.assignDontCare
-        when(settings.log2Bits === 0 && Bool(cfg.with1Bit != SpiCfg.invalid)) { // 1 bit
-            shiftCorrectedMiso := io.miso(1).asBits.resized
+        if (cfg.with1Bit == SpiCfg.fullDuplex || cfg.with1Bit == SpiCfg.any) {
+            when(settings.log2Bits === 0) { // 1 bit
+                shiftCorrectedMiso := io.miso(1).asBits.resized
+            }
         }
-        when(settings.log2Bits === 1 && Bool(cfg.with2Bit != SpiCfg.invalid)) { // 2 bits
-            shiftCorrectedMiso := io.miso(3 downto 2).resized
+        if (cfg.with1Bit == SpiCfg.fullDuplex || cfg.with1Bit == SpiCfg.any) {
+            when(settings.log2Bits === 1) { // 2 bits
+                shiftCorrectedMiso := io.miso(3 downto 2).resized
+            }
         }
-        when(settings.log2Bits === 2 && Bool(cfg.with4Bit != SpiCfg.invalid)) { // 4 bits
-            shiftCorrectedMiso := io.miso(7 downto 4).resized
+        if (cfg.with1Bit == SpiCfg.fullDuplex || cfg.with1Bit == SpiCfg.any) {
+            when(settings.log2Bits === 2) { // 4 bits
+                shiftCorrectedMiso := io.miso(7 downto 4).resized
+            }
         }
     } otherwise {
         // No need to shift miso if not full-duplex.
@@ -258,14 +264,20 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
     } otherwise {
         // Shift amount depends on the number of bits.
         switch(settings.log2Bits) {
-            is(0) { // 1 bit
-                txBuf := txBuf |<< 1
+            if (cfg.with1Bit != SpiCfg.invalid) {
+                is(0) { // 1 bit
+                    txBuf := txBuf |<< 1
+                }
             }
-            is(1) { // 2 bits
-                txBuf := txBuf |<< 2
+            if (cfg.with2Bit != SpiCfg.invalid) {
+                is(1) { // 2 bits
+                    txBuf := txBuf |<< 2
+                }
             }
-            is(2) { // 4 bits
-                txBuf := txBuf |<< 4
+            if (cfg.with4Bit != SpiCfg.invalid) {
+                is(2) { // 4 bits
+                    txBuf := txBuf |<< 4
+                }
             }
             default {
                 txBuf.assignDontCare()
@@ -277,14 +289,26 @@ case class SpiMaster(cfg: SpiCfg = SpiCfg()) extends Component {
     when(cycles =/= 0) {
         // Shift amount depends on the number of bits.
         rxBuf.assignDontCare
-        when(settings.log2Bits === 0 && Bool(cfg.with1Bit != SpiCfg.invalid)) { // 1 bit
-            rxBuf := rxBuf(6 downto 0) ## shiftCorrectedMiso(0)
+        if (cfg.with1Bit != SpiCfg.invalid) {
+            when(
+                settings.log2Bits === 0 && Bool(cfg.with1Bit != SpiCfg.invalid)
+            ) { // 1 bit
+                rxBuf := rxBuf(6 downto 0) ## shiftCorrectedMiso(0)
+            }
         }
-        when(settings.log2Bits === 1 && Bool(cfg.with2Bit != SpiCfg.invalid)) { // 2 bits
-            rxBuf := rxBuf(5 downto 0) ## shiftCorrectedMiso(1 downto 0)
+        if (cfg.with2Bit != SpiCfg.invalid) {
+            when(
+                settings.log2Bits === 1 && Bool(cfg.with2Bit != SpiCfg.invalid)
+            ) { // 2 bits
+                rxBuf := rxBuf(5 downto 0) ## shiftCorrectedMiso(1 downto 0)
+            }
         }
-        when(settings.log2Bits === 2 && Bool(cfg.with4Bit != SpiCfg.invalid)) { // 4 bits
-            rxBuf := rxBuf(3 downto 0) ## shiftCorrectedMiso(3 downto 0)
+        if (cfg.with4Bit != SpiCfg.invalid) {
+            when(
+                settings.log2Bits === 2 && Bool(cfg.with4Bit != SpiCfg.invalid)
+            ) { // 4 bits
+                rxBuf := rxBuf(3 downto 0) ## shiftCorrectedMiso(3 downto 0)
+            }
         }
     }
 }

@@ -11,7 +11,8 @@ import spinal.core._
 import spinal.lib._
 
 /** Serial interface command engine. */
-case class CmdEngine(cfg: SapphireCfg) extends Component {
+case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
+    extends Component {
     val io = new Bundle {
 
         /** Active-high chip select input. */
@@ -33,14 +34,16 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         val dma = master port DmaBus(cfg.vaddrBits bits)
 
         /** Debug register read bus. */
-        val debug = master port DebugBus()
+        val debug = enableDebug generate (master port DebugBus())
     }
 
     val pChipSelect       = RegNext(io.chipSelect)
     val chipSelectFalling = !io.chipSelect && pChipSelect
 
-    // Default debug bus drive; overridden by the DEBUG READ command.
-    io.debug.index := U(0).resized
+    if (enableDebug) {
+        // Default debug bus drive; overridden by the DEBUG READ command.
+        io.debug.index := U(0).resized
+    }
 
     /** DMA is currently set up. */
     val isDmaSetup = RegInit(False)
@@ -126,9 +129,11 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
 
     /** Enabled debug-latch triggers; resets to DBGCMD. */
     val latchTriggers = RegInit(B(1, 5 bits))
-    io.debug.latch :=
-        ((evtIrq ## evtDmaByte ## evtDmaErr ## evtCmdByte ## evtDbgCmd) &
-            latchTriggers).orR
+    if (enableDebug) {
+        io.debug.latch :=
+            ((evtIrq ## evtDmaByte ## evtDmaErr ## evtCmdByte ## evtDbgCmd) &
+                latchTriggers).orR
+    }
 
     // NOP: No Operation
     addCommand(0) { _ => null }
@@ -166,15 +171,17 @@ case class CmdEngine(cfg: SapphireCfg) extends Component {
         irqOnDmaReady      := True
         null
     }
-    // DEBUG READ: Expose internal architectural state for debug purposes.
-    addCommand(12, UInt(16 bits)) { reg =>
-        io.debug.index := reg
-        io.debug.data
-    }
-    // DEBUG TRIGGERS: Select which events latch the debug registers.
-    addCommand(13, Bits(8 bits)) { mask =>
-        latchTriggers := mask.resized
-        null
+    if (enableDebug) {
+        // DEBUG READ: Expose internal architectural state for debug purposes.
+        addCommand(12, UInt(16 bits)) { reg =>
+            io.debug.index := reg
+            io.debug.data
+        }
+        // DEBUG TRIGGERS: Select which events latch the debug registers.
+        addCommand(13, Bits(8 bits)) { mask =>
+            latchTriggers := mask.resized
+            null
+        }
     }
     // DMA END: Tear down DMA transfer.
     addCommand(14) { _ =>
