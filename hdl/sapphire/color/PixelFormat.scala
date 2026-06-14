@@ -18,7 +18,12 @@ case class ChannelFormat(cfg: SapphireCfg) extends Bundle {
 object PixelFormatType extends SpinalEnum(binarySequential) {
 
     /** Greyscale; channel 0 defines brightness. */
-    val GREYSCALE = newElement()
+    val GREY = newElement()
+
+    /** Greyscale with alpha; channel 0 defines brightness, channel 3 defines
+      * alpha.
+      */
+    val GREYA = newElement()
 
     /** RGB; channels 0-2 define red, green and blue respectively. */
     val RGB = newElement()

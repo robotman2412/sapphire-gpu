@@ -13,6 +13,8 @@ case class Color() extends Bundle {
     val a = UInt(8 bits)
 
     def apply(channel: Int): UInt = Seq(r, g, b, a)(channel)
+
+    def toVec: Vec[UInt] = Vec(r, g, b, a)
 }
 
 object Color {
@@ -28,4 +30,6 @@ object Color {
     def RGB(r: UInt, g: UInt, b: UInt): Color = RGBA(r, g, b, U"8'xff")
 
     def GREY(v: UInt): Color = RGBA(v, v, v, U"8'xff")
+
+    def GREYA(v: UInt, a: UInt): Color = RGBA(v, v, v, a)
 }
