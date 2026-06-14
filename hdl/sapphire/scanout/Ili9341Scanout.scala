@@ -20,5 +20,17 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
 
         /** Framebuffer pixel format. */
         val pixfmt = in port PixelFormat(cfg)
+
+        /** Active-high display reset output. */
+        val resetOut = out port Bool()
+
+        /** Register select; 0: Command, 1: Data. */
+        val isData = out port Bool()
+
+        /** Write strobe. */
+        val strobe = out port Bool()
+
+        /** Data bus. */
+        val data = out port Bits(8 bits)
     }
 }
