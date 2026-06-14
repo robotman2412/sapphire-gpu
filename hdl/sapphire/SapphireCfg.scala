@@ -53,8 +53,11 @@ object SapphireCfg {
         /** The GPU has support for vertex coloring. */
         val hasVCol = Bool()
 
+        /** The GPU has a Memory-Management Unit. */
+        val hasMmu = Bool()
+
         /** Reserved; should be 0. */
-        val _resvd0 = Bits(30 bits)
+        val _resvd0 = Bits(29 bits)
     }
 }
 
@@ -68,7 +71,9 @@ case class SapphireCfg(
     /** Enable 3D support. */
     has3D: Boolean = false,
     /** Enable vertex coloring. */
-    hasVCol: Boolean = false
+    hasVCol: Boolean = false,
+    /** Enable memory-mapping unit. */
+    hasMmu: Boolean = false
 ) {
 
     /** Virtual address bit width. */
@@ -87,10 +92,11 @@ case class SapphireCfg(
         desc.irqImpl                  := B"32'b0011"
         desc.ramSize                  := U(ramSize, 64 bits)
         desc.requiredFeatures.is64bit := Bool(vaddrBits > 32)
-        desc.requiredFeatures._resvd0 := B"31'b0"
+        desc.requiredFeatures._resvd0 := B(0)
         desc.optionalFeatures.has3D   := Bool(has3D)
         desc.optionalFeatures.hasVCol := Bool(hasVCol)
-        desc.optionalFeatures._resvd0 := B"30'b0"
+        desc.optionalFeatures.hasMmu  := Bool(hasMmu)
+        desc.optionalFeatures._resvd0 := B(0)
         desc.coordBits                := U(coordBits, 8 bits)
         desc
     }
