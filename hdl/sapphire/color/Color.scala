@@ -1,6 +1,7 @@
 package sapphire.color
 
-// Copyright © 2024, Julian Scheffers, see LICENSE for info
+// Copyright (c) 2024 Julian Scheffers
+// SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import spinal.core._
 import sapphire._
@@ -10,7 +11,7 @@ case class Color() extends Bundle {
     val g = UInt(8 bits)
     val b = UInt(8 bits)
     val a = UInt(8 bits)
-    
+
     def apply(channel: Int): UInt = Seq(r, g, b, a)(channel)
 }
 
@@ -23,8 +24,8 @@ object Color {
         col.a := a
         col
     }
-    
+
     def RGB(r: UInt, g: UInt, b: UInt): Color = RGBA(r, g, b, U"8'xff")
-    
+
     def GREY(v: UInt): Color = RGBA(v, v, v, U"8'xff")
 }

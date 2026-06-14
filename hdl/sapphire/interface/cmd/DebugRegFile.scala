@@ -1,7 +1,7 @@
 package sapphire.interface.cmd
 
+// Copyright (c) 2026 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
-// SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 import spinal.core._
 import spinal.lib._
@@ -11,9 +11,9 @@ import spinal.lib._
   * bus index selects one, zero-extended to the bus data width. Out-of-range
   * indices read as zero.
   *
-  * Reads return a latched snapshot of every tap rather than its live value.
-  * The snapshot is (re)taken whenever the bus master pulses `debug.latch`, so
-  * all registers present a coherent view of the same instant.
+  * Reads return a latched snapshot of every tap rather than its live value. The
+  * snapshot is (re)taken whenever the bus master pulses `debug.latch`, so all
+  * registers present a coherent view of the same instant.
   */
 case class DebugRegFile(taps: Seq[BitCount]) extends Component {
     val io = new Bundle {

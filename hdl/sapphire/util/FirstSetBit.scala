@@ -1,10 +1,9 @@
 package sapphire.util
 
-// Copyright © 2024, Julian Scheffers, see LICENSE for info
+// Copyright (c) 2024 Julian Scheffers
+// SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import spinal.core._
-
-
 
 /** Find the first set bit in a bit vector. */
 object FirstSetBit {
@@ -12,7 +11,7 @@ object FirstSetBit {
         val tmp = Bits(x.getBitsWidth bits)
         tmp(0) := x(0)
         for (i <- 1 until x.getBitsWidth) {
-            tmp(i) := x(i-1 downto 0) === B(0, i bits) && x(i)
+            tmp(i) := x(i - 1 downto 0) === B(0, i bits) && x(i)
         }
         return tmp
     }
@@ -20,7 +19,7 @@ object FirstSetBit {
         val tmp = UInt(x.getBitsWidth bits)
         tmp(0) := x(0)
         for (i <- 1 until x.getBitsWidth) {
-            tmp(i) := x(i-1 downto 0) === U(0, i bits) && x(i)
+            tmp(i) := x(i - 1 downto 0) === U(0, i bits) && x(i)
         }
         return tmp
     }
@@ -28,7 +27,7 @@ object FirstSetBit {
         val tmp = SInt(x.getBitsWidth bits)
         tmp(0) := x(0)
         for (i <- 1 until x.getBitsWidth) {
-            tmp(i) := x(i-1 downto 0) === S(0, i bits) && x(i)
+            tmp(i) := x(i - 1 downto 0) === S(0, i bits) && x(i)
         }
         return tmp
     }

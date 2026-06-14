@@ -1,7 +1,7 @@
 package sapphire.sim
 
+// Copyright (c) 2025-2026 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
-// SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 import sapphire._
 import sapphire.phy.spi.SimpleSpiSlave
@@ -20,9 +20,9 @@ object SimpleSpiSlaveTest extends App {
             dut.clockDomain.forkStimulus(period = 10)
 
             // Some test data to be sent over SPI.
-            val mosiData =
+            val mosiData      =
                 Seq(0x82, 0x41, 0xff, 0x00, 0xaa, 0x55, 0xf0, 0x0d, 0xba, 0xbe)
-            val misoData =
+            val misoData      =
                 Seq(0xca, 0xfe, 0xba, 0xbe, 0xaa, 0x55, 0x82, 0x41, 0xff, 0x00)
             var misoDataIndex = 0
             dut.io.txd.payload #= misoData(0)
@@ -42,7 +42,9 @@ object SimpleSpiSlaveTest extends App {
                     misoDataIndex += 1
                     val idx = misoDataIndex
                     dut.clockDomain.onNextSampling {
-                        dut.io.txd.payload #= (if (idx < misoData.length) misoData(idx) else 0)
+                        dut.io.txd.payload #= (if (idx < misoData.length)
+                                                   misoData(idx)
+                                               else 0)
                     }
                 }
             }
@@ -78,7 +80,9 @@ object SimpleSpiSlaveTest extends App {
             val cont = for (byte <- mosiData) yield clockByte(byte)
             dut.io.chipSelect #= false
             dut.clockDomain.waitSampling(halfPeriod)
-            println("Continuous MISO: " + cont.map("0x%02x".format(_)).mkString(" "))
+            println(
+                "Continuous MISO: " + cont.map("0x%02x".format(_)).mkString(" ")
+            )
             assert(cont == misoData, "continuous read returned wrong MISO data")
             assert(
                 mosiRecv.toSeq == mosiData,
@@ -109,7 +113,9 @@ object SimpleSpiSlaveTest extends App {
             dut.io.chipSelect #= false
             dut.clockDomain.waitSampling(halfPeriod)
 
-            println("Split MISO: " + split.map("0x%02x".format(_)).mkString(" "))
+            println(
+                "Split MISO: " + split.map("0x%02x".format(_)).mkString(" ")
+            )
             assert(
                 split.toSeq == misoData.take(6),
                 "split read dropped or misaligned a byte"

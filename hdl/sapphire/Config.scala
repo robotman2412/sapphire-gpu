@@ -1,6 +1,7 @@
 package sapphire
 
-// Copyright © 2024, Julian Scheffers, see LICENSE for info
+// Copyright (c) 2025 Julian Scheffers
+// SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import spinal.core._
 import spinal.core.sim._
@@ -14,6 +15,7 @@ object Config {
         ),
         onlyStdLogicVectorAtTopLevelIo = true
     )
-    
-    def sim = SimConfig.withConfig(spinal).withFstWave.setTestPath("$WORKSPACE/$TEST")
+
+    def sim =
+        SimConfig.withConfig(spinal).withFstWave.setTestPath("$WORKSPACE/$TEST")
 }

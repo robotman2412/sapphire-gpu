@@ -2,8 +2,8 @@ package sapphire
 
 import spinal.core._
 
+// Copyright (c) 2025 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
-// SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 object SapphireCfg {
     case class Desc() extends Bundle {

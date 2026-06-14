@@ -1,7 +1,7 @@
 package sapphire.interface.cmd
 
+// Copyright (c) 2026 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
-// SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 import spinal.core._
 import spinal.lib._
@@ -15,7 +15,8 @@ import spinal.lib._
   * freezing a coherent view of a transient moment for later read-out.
   */
 case class DebugBus(indexBits: BitCount = 16 bits, dataBits: BitCount = 32 bits)
-    extends Bundle with IMasterSlave {
+    extends Bundle
+    with IMasterSlave {
 
     /** Requested debug register index. */
     val index = UInt(indexBits)

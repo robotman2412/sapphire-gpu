@@ -1,6 +1,7 @@
 package sapphire.sim
 
-// Copyright © 2024, Julian Scheffers, see LICENSE for info
+// Copyright (c) 2024 Julian Scheffers
+// SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import sapphire._
 import spinal.core._

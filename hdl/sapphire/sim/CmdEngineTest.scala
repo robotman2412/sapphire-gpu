@@ -1,7 +1,7 @@
 package sapphire.sim
 
+// Copyright (c) 2025-2026 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
-// SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 import sapphire._
 import sapphire.interface.cmd.CmdEngine
@@ -161,7 +161,7 @@ object CmdEngineTest extends App {
             dut.io.txd.peek #= true
             dut.io.txd.ready #= false
             dut.clockDomain.waitSampling(3)
-            val held = dut.io.txd.payload.toInt
+            val held     = dut.io.txd.payload.toInt
             dut.clockDomain.waitSampling(3)
             assert(
                 dut.io.txd.payload.toInt == held,
@@ -178,7 +178,10 @@ object CmdEngineTest extends App {
                 advanced == ((held + 1) & 0xff),
                 "commit must advance the read stream by one"
             )
-            println("Peek held 0x%02x, commit advanced to 0x%02x".format(held, advanced))
+            println(
+                "Peek held 0x%02x, commit advanced to 0x%02x"
+                    .format(held, advanced)
+            )
             dut.io.chipSelect #= false
             dut.clockDomain.waitSampling()
             runCmd(Seq(0x0e)) // DMA TEARDOWN
@@ -191,7 +194,7 @@ object CmdEngineTest extends App {
             dut.clockDomain.waitSamplingWhere(dut.io.irqOut.toBoolean)
             // IRQ CLEAR: 0x00000003
             runCmd(Seq(0x03, 0x03, 0x00, 0x00, 0x00))
-            val irq  = getResp(4)
+            val irq = getResp(4)
             println(
                 "Irq status: 0x%02x%02x%02x%02x"
                     .format(irq(3), irq(2), irq(1), irq(0))
@@ -210,7 +213,7 @@ object CmdEngineTest extends App {
                     (r(2).toLong << 16) | (r(3).toLong << 24)) & 0xffffffffL
             }
             // Select debug latch triggers (DEBUG TRIGGERS command).
-            def setTriggers(mask: Int) = runCmd(Seq(0x0d, mask & 0xff))
+            def setTriggers(mask: Int)  = runCmd(Seq(0x0d, mask & 0xff))
 
             // Default trigger is DBGCMD: a DEBUG READ snapshots the live taps,
             // so the read returns whatever the tap held at command time.
@@ -218,7 +221,10 @@ object CmdEngineTest extends App {
             dut.clockDomain.waitSampling(2)
             val a = readDbg(0)
             println("Latch A (DBGCMD): 0x%08x".format(a))
-            assert(a == 0x11223344L, "DBGCMD should snapshot the current tap value")
+            assert(
+                a == 0x11223344L,
+                "DBGCMD should snapshot the current tap value"
+            )
 
             // Disable all triggers: the snapshot must now freeze. Changing the
             // tap and reading again must still return the previously latched value.
@@ -227,7 +233,10 @@ object CmdEngineTest extends App {
             dut.clockDomain.waitSampling(2)
             val b = readDbg(0)
             println("Latch B (frozen): 0x%08x".format(b))
-            assert(b == 0x11223344L, "with no triggers the snapshot must stay frozen")
+            assert(
+                b == 0x11223344L,
+                "with no triggers the snapshot must stay frozen"
+            )
 
             // Event trigger: snapshot must update when the selected event fires
             // and then stay frozen across the subsequent DEBUG READ. CMDBYTE is
@@ -244,7 +253,10 @@ object CmdEngineTest extends App {
             dut.clockDomain.waitSampling(2)
             val c = readDbg(0)
             println("Latch C (CMDBYTE): 0x%08x".format(c))
-            assert(c == 0x99aabbccL, "CMDBYTE should latch the tap when a command byte is read")
+            assert(
+                c == 0x99aabbccL,
+                "CMDBYTE should latch the tap when a command byte is read"
+            )
 
             println("Debug latch tests passed.")
             dut.clockDomain.waitSampling(10)

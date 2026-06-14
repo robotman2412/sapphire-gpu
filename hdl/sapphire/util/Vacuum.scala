@@ -1,7 +1,7 @@
 package sapphire.util
 
+// Copyright (c) 2025-2026 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
-// SPDX-CopyRightText: 2025 Julian Scheffers <julian@scheffers.net>
 
 import spinal.core._
 import spinal.lib._

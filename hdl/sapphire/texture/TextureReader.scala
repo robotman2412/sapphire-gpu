@@ -1,6 +1,7 @@
 package sapphire.texture
 
-// Copyright © 2024, Julian Scheffers, see LICENSE for info
+// Copyright (c) 2024 Julian Scheffers
+// SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import sapphire._
 import spinal.core._
@@ -14,18 +15,22 @@ import sapphire.util.FloatUtil.floatToUint01
 case class TextureReader(cfg: SapphireCfg) extends Component {
     import cfg.plCfg
     val io = new Bundle {
+
         /** Texture coordinate input stream. */
-        val uv      = slave  port Stream(Vec.fill(2)(Floating32()))
+        val uv = slave port Stream(Vec.fill(2)(Floating32()))
+
         /** Texture data output stream. */
-        val data    = master port Stream(Bits(32 bits))
+        val data = master port Stream(Bits(32 bits))
+
         /** Texture reference. */
-        val texture = in     port TextureRef(cfg)
+        val texture = in port TextureRef(cfg)
+
         /** Memory interface. */
-        val mem     = master port AhbLite3Master(AhbLite3Config(cfg.vaddrBits, 32))
+        val mem = master port AhbLite3Master(AhbLite3Config(cfg.vaddrBits, 32))
     }
-    
+
     val builder = new StageCtrlPipeline()
-    
+
     /** Convert UVs to [0,1) fixed-point numbers. */
     val f2i = new builder.Ctrl(0) {
         up.valid    := io.uv.valid
@@ -33,74 +38,83 @@ case class TextureReader(cfg: SapphireCfg) extends Component {
         val UI = insert(floatToUint01(io.uv.payload(0), 24))
         val VI = insert(floatToUint01(io.uv.payload(1), 24))
     }
-    
+
     /** Multiply quantized UVs into X and Y coordinates. */
     val mul = new builder.Ctrl(plCfg.fconvStage.toInt) {
         val range = cfg.coordBits + 23 downto 24
-        val X = insert((io.texture.spec.width  * f2i.UI)(range))
-        val Y = insert((io.texture.spec.height * f2i.VI)(range))
+        val X     = insert((io.texture.spec.width * f2i.UI)(range))
+        val Y     = insert((io.texture.spec.height * f2i.VI)(range))
     }
-    
+
     /** Compute texture index of pixel. */
     val icalc = new builder.Ctrl(plCfg.fconvStage.toInt + plCfg.normMulStages) {
         val IDX = insert(mul.X + mul.Y * io.texture.spec.width)
     }
-    
+
     /** Compute bit and byte address of pixel. */
-    val acalc = new builder.Ctrl(plCfg.fconvStage.toInt + 2 * plCfg.normMulStages) {
-        val OFF  = insert(io.texture.spec.pixfmt.bpp.mux(
-            M"00000-" -> (icalc.IDX >> 3)            .resize(26),
-            M"00001-" -> (icalc.IDX >> 2)            .resize(26),
-            M"0001--" -> (icalc.IDX >> 1)            .resize(26),
-            M"001---" ->  icalc.IDX                  .resize(26),
-            M"010---" -> (icalc.IDX << 1)            .resize(26),
-            M"011---" -> (icalc.IDX + icalc.IDX << 1).resize(26),
-            default   -> (icalc.IDX << 2)            .resize(26),
-        ))
-        val BPOS = insert(io.texture.spec.pixfmt.bpp.mux(
-            M"00000-" -> icalc.IDX(2 downto 0),
-            M"00001-" -> icalc.IDX(1 downto 0).resize(3),
-            M"0001--" -> icalc.IDX(0 downto 0).resize(3),
-            default   -> U"000",
-        ))
-        val ADDR = insert(io.texture.vaddr + OFF.resize(cfg.vaddrBits))
-    }
-    
+    val acalc =
+        new builder.Ctrl(plCfg.fconvStage.toInt + 2 * plCfg.normMulStages) {
+            val OFF  = insert(
+                io.texture.spec.pixfmt.bpp.mux(
+                    M"00000-" -> (icalc.IDX >> 3).resize(26),
+                    M"00001-" -> (icalc.IDX >> 2).resize(26),
+                    M"0001--" -> (icalc.IDX >> 1).resize(26),
+                    M"001---" -> icalc.IDX.resize(26),
+                    M"010---" -> (icalc.IDX << 1).resize(26),
+                    M"011---" -> (icalc.IDX + icalc.IDX << 1).resize(26),
+                    default   -> (icalc.IDX << 2).resize(26)
+                )
+            )
+            val BPOS = insert(
+                io.texture.spec.pixfmt.bpp.mux(
+                    M"00000-" -> icalc.IDX(2 downto 0),
+                    M"00001-" -> icalc.IDX(1 downto 0).resize(3),
+                    M"0001--" -> icalc.IDX(0 downto 0).resize(3),
+                    default   -> U"000"
+                )
+            )
+            val ADDR = insert(io.texture.vaddr + OFF.resize(cfg.vaddrBits))
+        }
+
     /** Memory request logic. */
-    val mem0 = new builder.Ctrl(plCfg.fconvStage.toInt + 2 * plCfg.normMulStages + plCfg.acalcStage.toInt) {
+    val mem0 = new builder.Ctrl(
+        plCfg.fconvStage.toInt + 2 * plCfg.normMulStages + plCfg.acalcStage.toInt
+    ) {
         // Set constant memory bus signals.
         io.mem.HWDATA.assignDontCare()
         io.mem.HWRITE    := False
         io.mem.HPROT     := B"1111" // Cacheable bufferable privileged data.
         io.mem.HMASTLOCK := False
-        io.mem.HBURST    := B"000" // SINGLE.
-        
+        io.mem.HBURST    := B"000"  // SINGLE.
+
         // Set dynamic memory bus signals.
-        io.mem.HSIZE     := io.texture.spec.pixfmt.bpp.mux(
+        io.mem.HSIZE  := io.texture.spec.pixfmt.bpp.mux(
             default   -> B"000",
             M"010---" -> B"001",
             M"011---" -> B"010",
-            M"1-----" -> B"010",
+            M"1-----" -> B"010"
         )
         io.mem.HADDR  := acalc.ADDR
         io.mem.HTRANS := AhbLite3.IDLE
-        when (isValid) {
+        when(isValid) {
             io.mem.HTRANS := AhbLite3.NONSEQ
         }
-        
+
         // Block if the memory is not ready.
         haltWhen(!io.mem.HREADY)
     }
-    
+
     /** Memory response logic. */
-    val mem1 = new builder.Ctrl(plCfg.fconvStage.toInt + 2 * plCfg.normMulStages + plCfg.acalcStage.toInt + 1) {
+    val mem1 = new builder.Ctrl(
+        plCfg.fconvStage.toInt + 2 * plCfg.normMulStages + plCfg.acalcStage.toInt + 1
+    ) {
         val RDATA = insert(io.mem.HRDATA)
         io.data.payload(31 downto 8) := RDATA(31 downto 8)
-        io.data.payload( 7 downto 0) := RDATA( 7 downto 0) >> acalc.BPOS
-        io.data.valid := isValid && io.mem.HREADY
+        io.data.payload(7 downto 0)  := RDATA(7 downto 0) >> acalc.BPOS
+        io.data.valid                := isValid && io.mem.HREADY
         haltWhen(io.mem.HREADY && !io.data.ready)
     }
-    
+
     // Build the pipeline.
     builder.build()
 }
