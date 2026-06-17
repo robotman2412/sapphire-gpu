@@ -7,7 +7,6 @@ import sapphire._
 import spinal.core._
 
 package object scanout {
-
     object caps {
 
         /** Scanout capability: is a CRT controller. */
@@ -21,6 +20,9 @@ package object scanout {
 
         /** Scanout capability: supports sending in-band commands. */
         val commands = B(1 << 3, 32 bits)
+
+        /** Scanout control: display reset (read-write; active-high). */
+        val reset = B(1 << 4, 32 bits)
     }
 
     object control {
@@ -30,15 +32,21 @@ package object scanout {
           */
         val enabled = B(1 << 0, 32 bits)
 
-        /** Scanout status: display attached (read-only; only with
-          * [[caps.negotiation]]).
-          */
+        /** Scanout status: display attached (read-only). */
         val attached = B(1 << 1, 32 bits)
 
         /** Scanout control: trigger one frame (trigger; only with
           * [[caps.isSerial]]).
           */
         val trigger = B(1 << 2, 32 bits)
+
+        /** Scanout control: register select; 0: Command, 1: Data (read-write;
+          * only with [[caps.isSerial]]).
+          */
+        val regsel = B(1 << 3, 32 bits)
+
+        /** Scanout control: display reset (read-write; active-high). */
+        val reset = B(1 << 4, 32 bits)
     }
 
     /** Register offsets in bytes for horizontal or vertical timings. */
