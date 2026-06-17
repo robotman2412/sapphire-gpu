@@ -9,7 +9,7 @@ import sapphire.dma._
 import spinal.core._
 import spinal.lib._
 
-/** Raw pixel data version of a [[PixelScanner]]. */
+/** Raw pixel data version of a [[FbScanner]]. */
 case class RawFbScanner(cfg: SapphireCfg) extends Component {
     val io = new Bundle {
 
@@ -37,8 +37,8 @@ case class RawFbScanner(cfg: SapphireCfg) extends Component {
         /** Stream of extracted pixel data. */
         val pixels = master port Stream(Bits(32 bits))
     }
-    io.dma.setup.setup.setAsReg
-    io.dma.setup.teardown.setAsReg
+    io.dma.setup.setup.setAsReg.init(False)
+    io.dma.setup.teardown.setAsReg.init(False)
     io.dma.wdata.valid := False
     io.dma.wdata.payload.assignDontCare
 
@@ -50,7 +50,7 @@ case class RawFbScanner(cfg: SapphireCfg) extends Component {
     val bitOff     = RegInit(U(0, 3 bits))
     val byteCount  = RegInit(U(0, 3 bits))
     val bpp        = Reg(UInt(6 bits))
-    val byteNeeded = bpp >> 2
+    val byteNeeded = Reg(UInt(3 bits))
     val advancePx  = Bool() // Advance one pixel; may be less than 8 bits.
     val advanceBuf = Bool() // Advance the buffer; consume the data.
     advancePx  := False
@@ -59,6 +59,9 @@ case class RawFbScanner(cfg: SapphireCfg) extends Component {
     // Setup logic.
     io.dma.setup.write := False
     io.dma.setup.addr  := io.vaddr
+    when(!io.enable) {
+        io.dma.setup.setup := False
+    }
     when(io.enable && io.trigger) {
         active    := True
         x         := U(0)
@@ -66,6 +69,11 @@ case class RawFbScanner(cfg: SapphireCfg) extends Component {
         bitOff    := U(0)
         byteCount := U(0)
         bpp       := io.bpp
+        when(io.bpp < U(8)) {
+            byteNeeded := U(1)
+        } otherwise {
+            byteNeeded := io.bpp >> 3
+        }
 
         io.dma.setup.teardown := isDmaSetup
         io.dma.setup.setup    := True
@@ -76,41 +84,47 @@ case class RawFbScanner(cfg: SapphireCfg) extends Component {
     }
     when(io.dma.setup.setup && io.dma.setup.setupReady) {
         isDmaSetup         := True
-        io.dma.setup.setup := True
+        io.dma.setup.setup := False
     }
 
     // Read a sufficient amount of bytes.
-    when(active && byteCount =/= byteNeeded) {
-        io.dma.rdata.ready := True
-        when(io.dma.rdata.valid) {
-            switch(byteCount) {
-                is(0) { buffer(7 downto 0) := io.dma.rdata.payload }
-                is(1) { buffer(15 downto 8) := io.dma.rdata.payload }
-                is(2) { buffer(23 downto 16) := io.dma.rdata.payload }
-                is(3) { buffer(31 downto 24) := io.dma.rdata.payload }
+    io.dma.rdata.ready := False
+    when(active) {
+        when(advanceBuf) {
+            io.dma.rdata.ready := True
+            when(io.dma.rdata.valid) {
+                buffer(7 downto 0) := io.dma.rdata.payload
+                byteCount          := U(1)
+            } otherwise {
+                byteCount := U(0)
             }
-            byteCount := byteCount + 1
-        }
-    }
-    when(advanceBuf) {
-        io.dma.rdata.ready := True
-        when(io.dma.rdata.valid) {
-            byteCount := U(1)
-        } otherwise {
-            byteCount := U(0)
+        } elsewhen (byteCount =/= byteNeeded) {
+            io.dma.rdata.ready := True
+            when(io.dma.rdata.valid) {
+                switch(byteCount) {
+                    is(0) { buffer(7 downto 0) := io.dma.rdata.payload }
+                    is(1) { buffer(15 downto 8) := io.dma.rdata.payload }
+                    is(2) { buffer(23 downto 16) := io.dma.rdata.payload }
+                    is(3) { buffer(31 downto 24) := io.dma.rdata.payload }
+                }
+                byteCount := byteCount + 1
+            }
         }
     }
 
     // Divide up sub-byte pixels.
-    io.pixels.payload.assignDontCare
-    when(byteCount === byteNeeded) {
+    io.pixels.valid   := False
+    // io.pixels.payload.assignDontCare
+    io.pixels.payload := B(0)
+    when(active && byteCount === byteNeeded) {
         // Negotiate available pixels with output stream.
         advancePx       := io.pixels.ready
         io.pixels.valid := True
 
         when(bpp < U(8)) {
-            bitOff := bitOff + bpp
-            when(bitOff === ~bpp) {
+            val next = bitOff +^ bpp(2 downto 0)
+            bitOff := next(2 downto 0)
+            when(next(3)) {
                 advanceBuf := advancePx
             }
             // Mux out the right bits from the input.
