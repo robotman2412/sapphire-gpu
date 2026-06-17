@@ -28,5 +28,5 @@ case class TextureSpec(cfg: SapphireCfg) extends Bundle {
     val bigEndian = Bool()
 
     /** Pixel format specification. */
-    val pixfmt = PixelFormat(cfg)
+    val pixfmt = PixelFormat()
 }

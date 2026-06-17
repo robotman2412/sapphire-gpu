@@ -6,7 +6,7 @@ package sapphire.color
 import spinal.core._
 import sapphire._
 
-case class ChannelFormat(cfg: SapphireCfg) extends Bundle {
+case class ChannelFormat() extends Bundle {
 
     /** Bit width of this channel minus one. */
     val width = UInt(3 bits)
@@ -32,7 +32,10 @@ object PixelFormatType extends SpinalEnum(binarySequential) {
     val RGBA = newElement()
 }
 
-case class PixelFormat(cfg: SapphireCfg) extends Bundle {
+case class PixelFormat() extends Bundle {
+
+    /** Channel formats. */
+    val channel = Vec.fill(4)(ChannelFormat())
 
     /** Number of bits used per pixel. Must always align to bytes or a
       * power-of-two number of bits.
@@ -41,7 +44,4 @@ case class PixelFormat(cfg: SapphireCfg) extends Bundle {
 
     /** Pixel format type. */
     val fmtType = PixelFormatType()
-
-    /** Channel formats. */
-    val channel = Vec.fill(4)(ChannelFormat(cfg))
 }
