@@ -9,6 +9,7 @@ import sapphire.dma._
 import scala.collection.mutable
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba3.apb._
 
 /** Serial interface command engine. */
 case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
@@ -33,9 +34,18 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
         /** GPU memory DMA bus. */
         val dma = master port DmaBus(cfg.vaddrBits bits)
 
+        /** GPU I/O register bus. */
+        val apb = master port Apb3(16, 32)
+
         /** Debug register read bus. */
         val debug = enableDebug generate (master port DebugBus())
     }
+
+    io.apb.PADDR.setAsReg()
+    io.apb.PWDATA.setAsReg()
+    io.apb.PWRITE.setAsReg()
+    io.apb.PENABLE.setAsReg()
+    val startApb = RegInit(False)
 
     val pChipSelect       = RegNext(io.chipSelect)
     val chipSelectFalling = !io.chipSelect && pChipSelect
@@ -188,6 +198,25 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
         io.dma.setup.teardown := isDmaSetup
         null
     }
+    // IOREAD: Read I/O register.
+    addCommand(15, UInt(16 bits)) { addr =>
+        // No immediate response from APB; it is loaded into `resp` asynchronously.
+        io.apb.PADDR  := addr
+        io.apb.PWDATA.assignDontCare
+        io.apb.PWRITE := False
+        startApb      := True
+        null
+    }
+    // IOWRITE: Write I/O register.
+    addCommand(16, Bits(48 bits)) { packed =>
+        val addr  = packed(15 downto 0).asUInt
+        val wdata = packed(47 downto 16)
+        io.apb.PADDR  := addr
+        io.apb.PWDATA := wdata
+        io.apb.PWRITE := True
+        startApb      := True
+        null
+    }
 
     private val paramBits =
         commands.map(x => if (x._2._1 == null) 0 else x._2._1.getBitsWidth).max
@@ -261,6 +290,12 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
                 }
             }
         }
+    }
+
+    // APB transaction logic.
+    when(startApb) {
+        startApb       := False
+        io.apb.PENABLE := True
     }
 
     // Receive data logic.
