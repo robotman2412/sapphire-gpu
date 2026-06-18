@@ -44,7 +44,8 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
     io.apb.PADDR.setAsReg()
     io.apb.PWDATA.setAsReg()
     io.apb.PWRITE.setAsReg()
-    io.apb.PENABLE.setAsReg()
+    io.apb.PENABLE.setAsReg().init(False)
+    io.apb.PSEL.setAsReg().init(B(0))
     val startApb = RegInit(False)
 
     val pChipSelect       = RegNext(io.chipSelect)
@@ -204,6 +205,7 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
         io.apb.PADDR  := addr
         io.apb.PWDATA.assignDontCare
         io.apb.PWRITE := False
+        io.apb.PSEL   := B(1)
         startApb      := True
         null
     }
@@ -214,6 +216,7 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
         io.apb.PADDR  := addr
         io.apb.PWDATA := wdata
         io.apb.PWRITE := True
+        io.apb.PSEL   := B(1)
         startApb      := True
         null
     }
@@ -297,6 +300,12 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
         startApb       := False
         io.apb.PENABLE := True
     }
+    val latchedApbRdata = Reg(Bits(32 bits))
+    when(io.apb.PENABLE && io.apb.PREADY) {
+        io.apb.PENABLE  := False
+        io.apb.PSEL     := B(0)
+        latchedApbRdata := io.apb.PRDATA
+    }
 
     // Receive data logic.
     io.dma.wdata.valid := False
@@ -352,6 +361,9 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
             // DESC command.
             val desc = cfg.descStruct.asBits
             io.txd.payload := desc(respIndex * 8, 8 bits)
+        } elsewhen (prevCmd === 15) {
+            // IOREAD APB response.
+            io.txd.payload := latchedApbRdata(respIndex * 8, 8 bits)
         } otherwise {
             // Other commands' response data.
             io.txd.payload := resp(respIndex * 8, 8 bits)

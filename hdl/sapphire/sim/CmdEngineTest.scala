@@ -4,13 +4,13 @@ package sapphire.sim
 // SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import sapphire._
-import sapphire.interface.cmd.CmdEngine
-import sapphire.interface.cmd.DebugRegFile
+import sapphire.dma._
+import sapphire.interface.cmd._
+import sapphire.util._
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import sapphire.util.Vacuum
-import sapphire.dma.DmaBus
+import spinal.lib.bus.amba3.apb._
 
 case class CmdEngineDut(cfg: SapphireCfg) extends Component {
     val io = new Bundle {
@@ -33,6 +33,9 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
         /** Driveable debug taps, exposed at debug register indices 0 and 1. */
         val dbgTap0 = in port Bits(32 bits)
         val dbgTap1 = in port Bits(8 bits)
+
+        val regRw = out port Bits(32 bits)
+        val regRo = in port Bits(32 bits)
     }
 
     val cmdEngine = CmdEngine(cfg)
@@ -43,6 +46,15 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
     cmdEngine.io.chipSelect := io.chipSelect
     io.irqOut               := cmdEngine.io.irqOut
     cmdEngine.io.irqIn      := io.irqIn
+
+    // Control registers APB bus.
+    val apb     = Apb3(16, 32)
+    cmdEngine.io.apb <> apb
+    val apbRegs = Apb3SlaveFactory(apb)
+    val regRw   = Reg(Bits(32 bits))
+    io.regRw := regRw
+    apbRegs.driveAndRead(regRw, address = 1)
+    apbRegs.read(io.regRo, address = 6)
 
     // Real debug register file so the latch behaviour can be exercised.
     val debugRegs = DebugRegFile(Seq(32 bits, 8 bits))
@@ -82,6 +94,7 @@ object CmdEngineTest extends App {
             dut.io.irqIn #= 0
             dut.io.dbgTap0 #= 0
             dut.io.dbgTap1 #= 0
+            dut.io.regRo #= 0
 
             // Fork a process to generate the reset and the clock on the dut
             dut.clockDomain.forkStimulus(period = 10)
@@ -106,18 +119,51 @@ object CmdEngineTest extends App {
                 dut.io.chipSelect #= true
                 // dut.clockDomain.waitSampling(2)
                 dut.io.txd.ready #= true
+                dut.io.txd.peek #= true
                 val resp = for (_ <- 0 until len) yield {
                     dut.clockDomain.waitSampling()
                     dut.io.txd.payload.toInt
                 }
+                dut.io.txd.peek #= false
                 dut.io.txd.ready #= false
                 dut.io.chipSelect #= false
                 dut.clockDomain.waitSampling()
                 resp
             }
 
+            // IOREAD
+            dut.io.regRo #= 0xcafebabeL;
+            runCmd(Seq(15, 0x06, 0x00))
+            dut.clockDomain.waitSampling(
+                2
+            ) // The command interface is very fast; give APB time to catch up.
+            val regRo = getResp(4)
+            println(
+                "IOREAD: 0x%02x%02x%02x%02x"
+                    .format(regRo(3), regRo(2), regRo(1), regRo(0))
+            )
+            assert(
+                regRo(3) == 0xca && regRo(2) == 0xfe
+                    && regRo(1) == 0xba && regRo(0) == 0xbe
+            )
+
+            // IOWRITE
+            runCmd(Seq(16, 0x01, 0x00, 0x11, 0x22, 0x33, 0x44))
+            dut.clockDomain.waitSampling(
+                4
+            ) // The command interface is very fast; give APB time to catch up.
+            println("IOWRITE: 0x%08x".format(dut.io.regRw.toInt))
+            assert(dut.io.regRw.toInt == 0x44332211)
+
+            runCmd(Seq(16, 0x01, 0x00, 0xde, 0xc0, 0xd0, 0xba))
+            dut.clockDomain.waitSampling(
+                4
+            ) // The command interface is very fast; give APB time to catch up.
+            println("IOWRITE: 0x%08x".format(dut.io.regRw.toInt))
+            assert(dut.io.regRw.toInt == 0xbad0c0de)
+
             // DESC
-            runCmd(Seq(0x02))
+            runCmd(Seq(2))
             val desc = getResp(32)
             println("Ver: %d.%d.%d".format(desc(0), desc(1), desc(2)))
             println("#Scanout: %d".format(desc(3)))
@@ -184,16 +230,16 @@ object CmdEngineTest extends App {
             )
             dut.io.chipSelect #= false
             dut.clockDomain.waitSampling()
-            runCmd(Seq(0x0e)) // DMA TEARDOWN
+            runCmd(Seq(14)) // DMA TEARDOWN
 
             // IRQ ENABLE: 0x00000003
-            runCmd(Seq(0x04, 0x03, 0x00, 0x00, 0x00))
+            runCmd(Seq(4, 0x03, 0x00, 0x00, 0x00))
             // WRITE DMA: 0xf00dbabe
-            runCmd(Seq(0x0a, 0xbe, 0xba, 0x0d, 0xf0))
+            runCmd(Seq(10, 0xbe, 0xba, 0x0d, 0xf0))
             // Wait for interrupt.
             dut.clockDomain.waitSamplingWhere(dut.io.irqOut.toBoolean)
             // IRQ CLEAR: 0x00000003
-            runCmd(Seq(0x03, 0x03, 0x00, 0x00, 0x00))
+            runCmd(Seq(3, 0x03, 0x00, 0x00, 0x00))
             val irq = getResp(4)
             println(
                 "Irq status: 0x%02x%02x%02x%02x"
@@ -246,7 +292,7 @@ object CmdEngineTest extends App {
             dut.io.dbgTap0 #= 0x99aabbccL
             dut.clockDomain.waitSampling(2)
             // A NOP is a non-DEBUG command byte, so it latches the current tap.
-            runCmd(Seq(0x00))
+            runCmd(Seq(0))
             // Change the tap afterwards; the frozen value must survive (the
             // following DEBUG READ is command 12, which CMDBYTE does not match).
             dut.io.dbgTap0 #= 0x0badf00dL
