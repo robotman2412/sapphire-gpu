@@ -85,7 +85,6 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
         /** Display command and data stream. */
         val dispStream = master port Stream(Packet())
     }
-    io.resetOut         := False
     io.dispStream.valid := False
     io.dispStream.payload.assignDontCare
 
@@ -101,6 +100,7 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     val trigger = RegInit(False)
     val regSel  = RegInit(False) // Register select for pass-through interface.
     val reset   = RegInit(False) // Display reset line.
+    io.resetOut := reset
 
     // APB-inferred write trigger for pass-through interface.
     val ptTrig = RegInit(False)
@@ -123,13 +123,14 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     busCtrl.onWrite(address = scanoutRegs.control) {
         enabled := TestBit(io.apb.PWDATA, control.enabled)
         reset   := TestBit(io.apb.PWDATA, control.reset)
+        regSel  := TestBit(io.apb.PWDATA, control.regsel)
         when(TestBit(io.apb.PWDATA, control.trigger)) {
             trigger := True
         }
     }
 
     busCtrl.read(
-        caps.isSerial | caps.commands | caps.reset,
+        B(caps.isSerial | caps.commands | caps.reset, 32 bits),
         address = scanoutRegs.caps
     )
     busCtrl.driveAndReadMultiWord(vaddr, address = scanoutRegs.fbAddrLo)
@@ -145,7 +146,7 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
 
     // Serial pass-through logic.
     when(!enabled) {
-        io.dispStream.ready          := ptTrig
+        io.dispStream.valid          := ptTrig
         io.dispStream.payload.regSel := regSel
         io.dispStream.payload.data   := io.apb.PWDATA(7 downto 0)
         busCtrl.onWrite(address = scanoutRegs.serialData) {
@@ -169,6 +170,7 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     }
 
     dataValid := True
+    fsmUpdate := False
 
     // Commands in sequence:
     when(enabled) {

@@ -10,19 +10,19 @@ package object scanout {
     object caps {
 
         /** Scanout capability: is a CRT controller. */
-        val isCrtc = B(1 << 0, 32 bits)
+        val isCrtc: Int = 1 << 0
 
         /** Scanout capability: is a serial controller. */
-        val isSerial = B(1 << 1, 32 bits)
+        val isSerial: Int = 1 << 1
 
         /** Scanout capability: supports I2C display negotiation. */
-        val negotiation = B(1 << 2, 32 bits)
+        val negotiation: Int = 1 << 2
 
         /** Scanout capability: supports sending in-band commands. */
-        val commands = B(1 << 3, 32 bits)
+        val commands: Int = 1 << 3
 
         /** Scanout control: display reset (read-write; active-high). */
-        val reset = B(1 << 4, 32 bits)
+        val reset: Int = 1 << 4
     }
 
     object control {
@@ -30,23 +30,23 @@ package object scanout {
         /** Scanout control: enabled (read-write; serial type does not
           * automatically send video if enabled).
           */
-        val enabled = B(1 << 0, 32 bits)
+        val enabled: Int = 1 << 0
 
         /** Scanout status: display attached (read-only). */
-        val attached = B(1 << 1, 32 bits)
+        val attached: Int = 1 << 1
 
         /** Scanout control: trigger one frame (trigger; only with
           * [[caps.isSerial]]).
           */
-        val trigger = B(1 << 2, 32 bits)
+        val trigger: Int = 1 << 2
 
         /** Scanout control: register select; 0: Command, 1: Data (read-write;
           * only with [[caps.isSerial]]).
           */
-        val regsel = B(1 << 3, 32 bits)
+        val regsel: Int = 1 << 3
 
         /** Scanout control: display reset (read-write; active-high). */
-        val reset = B(1 << 4, 32 bits)
+        val reset: Int = 1 << 4
     }
 
     /** Register offsets in bytes for horizontal or vertical timings. */
