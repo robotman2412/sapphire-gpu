@@ -21,6 +21,7 @@ object Ili9341Scanout {
         val V_RES     = newElement()
         val WRITE_CMD = newElement()
         val DATA      = newElement()
+        val DMA_STOP  = newElement()
     }
 
     /** A byte to transmit to an ILI9341-based display. */
@@ -119,14 +120,21 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
         /** Display command and data stream. */
         val dispStream = master port Stream(Packet())
     }
-    io.dispStream.valid := False
+    io.dispStream.valid   := False
     io.dispStream.payload.assignDontCare()
+    io.dma.setup.setup    := False
+    io.dma.setup.write    := False
+    io.dma.setup.teardown := False
+    io.dma.wdata.valid    := False
+    io.dma.wdata.payload.assignDontCare()
+    io.dma.rdata.ready    := False
 
-    val fsm      = RegInit(Fsm.IDLE)
-    val cmdIndex = RegInit(U(0, 2 bits))
-    val x        = Reg(UInt(cfg.coordBits bits))
-    val y        = Reg(UInt(cfg.coordBits bits))
-    val highByte = RegInit(False)
+    val fsm        = RegInit(Fsm.IDLE)
+    val isDmaSetup = RegInit(False)
+    val cmdIndex   = RegInit(U(0, 2 bits))
+    val x          = Reg(UInt(cfg.coordBits bits))
+    val y          = Reg(UInt(cfg.coordBits bits))
+    val highByte   = RegInit(False)
 
     // Status register.
     val enabled  = RegInit(False)
@@ -145,7 +153,6 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     io.chipSelect := enabled || forceSel || !io.dispStream.ready
 
     // Configuration registers.
-    val vaddr   = UInt(cfg.vaddrBits bits)
     val pixfmt  = PixelFormat()
     val offsetX = UInt(cfg.coordBits bits)
     val offsetY = UInt(cfg.coordBits bits)
@@ -183,7 +190,10 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
         ),
         address = scanoutRegs.caps
     )
-    busCtrl.driveAndReadMultiWord(vaddr, address = scanoutRegs.fbAddrLo)
+    busCtrl.driveAndReadMultiWord(
+        io.dma.setup.addr,
+        address = scanoutRegs.fbAddrLo
+    )
     busCtrl.driveAndReadMultiWord(pixfmt, address = scanoutRegs.pixfmt)
     busCtrl.driveAndRead(
         offsetX,
@@ -232,6 +242,22 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
         }
 
         fsm := Fsm.IDLE
+    }
+
+    // DMA setup/teardown logic.
+    when(enabled && fsm =/= Fsm.IDLE && fsm =/= Fsm.DMA_STOP && !isDmaSetup) {
+        // Begin setting up DMA when triggered; hopefully the setup completes before the data phase.
+        io.dma.setup.setup := True
+        when(io.dma.setup.setupReady) {
+            isDmaSetup := True
+        }
+    }
+    when(enabled && fsm === Fsm.DMA_STOP && isDmaSetup) {
+        // Tear down DMA after the update is finished.
+        io.dma.setup.teardown := True
+        when(io.dma.setup.teardownReady) {
+            isDmaSetup := False
+        }
     }
 
     // Trigger condition.
@@ -309,21 +335,29 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
             }
 
         } elsewhen (fsm === Fsm.DATA) {
-            io.dispStream.valid  := True
+            io.dma.rdata.ready   := io.dispStream.ready
+            io.dispStream.valid  := io.dma.rdata.valid
             io.dispStream.regSel := True
-            io.dispStream.data   := B(0xcc, 8 bits) // Dummy data.
-            when(io.dispStream.fire && x + 1 === width && y + 1 === height) {
-                fsm := Fsm.IDLE
-                x.assignDontCare()
-                y.assignDontCare()
-            } elsewhen (io.dispStream.fire && x + 1 === width) {
-                x := 0
-                y := y + 1
-            } elsewhen (io.dispStream.fire && highByte) {
-                x := x + 1
+            io.dispStream.data   := io.dma.rdata.payload
+            when(io.dispStream.fire && highByte) {
+                when(x + 1 === width && y + 1 === height) {
+                    fsm := Fsm.DMA_STOP
+                    x.assignDontCare()
+                    y.assignDontCare()
+                } elsewhen (x + 1 === width) {
+                    x := 0
+                    y := y + 1
+                } otherwise {
+                    x := x + 1
+                }
             }
             when(io.dispStream.fire) {
                 highByte := !highByte
+            }
+
+        } elsewhen (fsm === Fsm.DMA_STOP) {
+            when(!isDmaSetup) {
+                fsm := Fsm.IDLE
             }
         }
     }

@@ -5,8 +5,9 @@ package sapphire.mem
 
 import spinal.core._
 import spinal.lib._
+import sapphire.dma._
 import sapphire.phy.spi._
-import sapphire.dma.DmaBus
+import sapphire.util._
 
 /** SPI memory controller state. */
 object SpiMemCtrl {
@@ -103,7 +104,7 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
     val state = out port RegInit(State.IDLE)
 
     /** Command / address buffer. */
-    val buffer = out port Reg(Bits(abits.value.max(8) bits))
+    val buffer = out port Reg(Bits((abits.value + 7) / 8 * 8 bits))
 
     /** Current access is a write. */
     val isWrite = out port Reg(Bool())
@@ -225,7 +226,7 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
             // Switch to address.
             cycles := settings.addrLen.resized
             state  := State.ADDR
-            buffer := addr.asBits.resized
+            buffer := ByteReverse(addr.asBits) // Sent in big-endian.
         } elsewhen (state === State.ADDR && isWrite && settings.preWriteCycles =/= 0) {
             // Switch to address to write dummy cycles.
             cycles := settings.preWriteCycles
