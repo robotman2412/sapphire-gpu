@@ -43,10 +43,13 @@ package object scanout {
         /** Scanout control: register select; 0: Command, 1: Data (read-write;
           * only with [[caps.isSerial]]).
           */
-        val regsel: Int = 1 << 3
+        val regSel: Int = 1 << 3
 
         /** Scanout control: display reset (read-write; active-high). */
         val reset: Int = 1 << 4
+
+        /** Scanout control: force enable chip select. */
+        val forceSel: Int = 1 << 5
     }
 
     /** Register offsets in bytes for horizontal or vertical timings. */

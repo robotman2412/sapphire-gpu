@@ -33,10 +33,22 @@ object Ili9341Scanout {
         val data = out port Bits(8 bits)
     }
 
-    /** Helper component that streams out the data from a [[Stream]] of
-      * [[Packet]] at core clock.
+    object SlowSink {
+        object State extends SpinalEnum {
+            val IDLE, SETUP, STROBE, HOLD = newElement()
+        }
+    }
+
+    /** Streams out the data with configurable setup and hold time and strobe
+      * width.
       */
-    case class DirectSink() extends Component {
+    case class SlowSink(setup: Int = 10, strobe: Int = 10, hold: Int = 0)
+        extends Component {
+        import SlowSink._
+        assert(setup >= 1)
+        assert(strobe >= 1)
+        assert(hold >= 0)
+
         val io = new Bundle {
             val in     = slave port Stream(Packet())
             val strobe = out port Bool()
@@ -44,25 +56,42 @@ object Ili9341Scanout {
             val data   = out port Bits(8 bits)
         }
 
-        val strobe = RegInit(False)
-        val regSel = Reg(Bool())
-        val data   = Reg(Bits(8 bits))
+        val state   = RegInit(State.IDLE)
+        val counter = RegInit(U(0, log2Up(setup.max(strobe).max(hold)) bits))
 
-        io.in.ready := True
-        strobe      := io.in.valid
-        regSel      := io.in.payload.regSel
-        data        := io.in.payload.data
+        io.in.ready := state === State.IDLE
+        io.strobe   := state === State.STROBE
+        io.regSel.setAsReg()
+        io.data.setAsReg()
 
-        /** Clock that falls in phase with this component's clock. Rises at a
-          * 180 degree offset from the active component clock edge.
-          */
-        val offsetClk = ClockDomain.current.readClockWire ^ Bool(
-            ClockDomain.current.config.clockEdge == RISING
-        )
+        when(counter === 0) {
+            switch(state) {
+                is(State.SETUP) {
+                    state   := State.STROBE
+                    counter := strobe - 1
+                }
+                is(State.STROBE) {
+                    if (hold > 0) {
+                        state   := State.HOLD
+                        counter := hold - 1
+                    } else {
+                        state := State.IDLE
+                    }
+                }
+                is(State.HOLD) {
+                    state := State.IDLE
+                }
+            }
+        } otherwise {
+            counter := counter - 1
+        }
 
-        io.strobe := offsetClk && strobe
-        io.regSel := regSel
-        io.data   := data
+        when(io.in.fire) {
+            state     := State.SETUP
+            counter   := setup - 1
+            io.regSel := io.in.regSel
+            io.data   := io.in.data
+        }
     }
 }
 
@@ -82,6 +111,9 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
         /** Active-high display reset output. */
         val resetOut = out port Bool()
 
+        /** Active-high display chip select output. */
+        val chipSelect = out port Bool()
+
         /** Display command and data stream. */
         val dispStream = master port Stream(Packet())
     }
@@ -96,14 +128,20 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     val dataValid = Bool()
 
     // Status register.
-    val enabled = RegInit(False)
-    val trigger = RegInit(False)
-    val regSel  = RegInit(False) // Register select for pass-through interface.
-    val reset   = RegInit(False) // Display reset line.
+    val enabled  = RegInit(False)
+    val trigger  = RegInit(False)
+    val regSel   = RegInit(False) // Register select for pass-through interface.
+    val reset    = RegInit(False) // Display reset line.
+    val forceSel = RegInit(False) // Force enable chip select.
     io.resetOut := reset
 
     // APB-inferred write trigger for pass-through interface.
     val ptTrig = RegInit(False)
+    val ptData = Reg(Bits(8 bits))
+
+    // The sink holds ready low through setup, strobe and hold, keeping the
+    // display selected until the last accepted byte has finished transmitting.
+    io.chipSelect := enabled || forceSel || !io.dispStream.ready
 
     // Configuration registers.
     val vaddr  = UInt(cfg.vaddrBits bits)
@@ -117,13 +155,17 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     busCtrl.read(
         SetBit(trigger, control.trigger) |
             control.attached |
-            SetBit(enabled, control.enabled),
+            SetBit(enabled, control.enabled) |
+            SetBit(reset, control.reset) |
+            SetBit(regSel, control.regSel) |
+            SetBit(forceSel, control.forceSel),
         address = scanoutRegs.control
     )
     busCtrl.onWrite(address = scanoutRegs.control) {
-        enabled := TestBit(io.apb.PWDATA, control.enabled)
-        reset   := TestBit(io.apb.PWDATA, control.reset)
-        regSel  := TestBit(io.apb.PWDATA, control.regsel)
+        enabled  := TestBit(io.apb.PWDATA, control.enabled)
+        reset    := TestBit(io.apb.PWDATA, control.reset)
+        regSel   := TestBit(io.apb.PWDATA, control.regSel)
+        forceSel := TestBit(io.apb.PWDATA, control.forceSel)
         when(TestBit(io.apb.PWDATA, control.trigger)) {
             trigger := True
         }
@@ -148,11 +190,12 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     when(!enabled) {
         io.dispStream.valid          := ptTrig
         io.dispStream.payload.regSel := regSel
-        io.dispStream.payload.data   := io.apb.PWDATA(7 downto 0)
+        io.dispStream.payload.data   := ptData
         busCtrl.onWrite(address = scanoutRegs.serialData) {
             ptTrig := True
+            ptData := io.apb.PWDATA(7 downto 0)
         }
-        when(io.dispStream.ready) {
+        when(io.dispStream.ready && ptTrig) {
             ptTrig := False
         }
 
