@@ -57,7 +57,9 @@ object Ili9341Scanout {
         }
 
         val state   = RegInit(State.IDLE)
-        val counter = RegInit(U(0, log2Up(setup.max(strobe).max(hold)) bits))
+        val counter = RegInit(
+            U(0, log2Up(setup.max(strobe).max(hold).max(2)) bits)
+        )
 
         io.in.ready := state === State.IDLE
         io.strobe   := state === State.STROBE
@@ -118,14 +120,13 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
         val dispStream = master port Stream(Packet())
     }
     io.dispStream.valid := False
-    io.dispStream.payload.assignDontCare
+    io.dispStream.payload.assignDontCare()
 
     val fsm      = RegInit(Fsm.IDLE)
     val cmdIndex = RegInit(U(0, 2 bits))
+    val x        = Reg(UInt(cfg.coordBits bits))
+    val y        = Reg(UInt(cfg.coordBits bits))
     val highByte = RegInit(False)
-
-    val fsmUpdate = Bool()
-    val dataValid = Bool()
 
     // Status register.
     val enabled  = RegInit(False)
@@ -144,10 +145,14 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     io.chipSelect := enabled || forceSel || !io.dispStream.ready
 
     // Configuration registers.
-    val vaddr  = UInt(cfg.vaddrBits bits)
-    val pixfmt = PixelFormat()
-    val width  = UInt(cfg.coordBits bits)
-    val height = UInt(cfg.coordBits bits)
+    val vaddr   = UInt(cfg.vaddrBits bits)
+    val pixfmt  = PixelFormat()
+    val offsetX = UInt(cfg.coordBits bits)
+    val offsetY = UInt(cfg.coordBits bits)
+    val width   = UInt(cfg.coordBits bits)
+    val height  = UInt(cfg.coordBits bits)
+    val endX    = offsetX + width - 1
+    val endY    = offsetY + height - 1
 
     // I/O bus interface.
     val busCtrl = Apb3SlaveFactory(io.apb)
@@ -172,25 +177,52 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     }
 
     busCtrl.read(
-        B(caps.isSerial | caps.commands | caps.reset, 32 bits),
+        B(
+            caps.isSerial | caps.commands | caps.reset | caps.partialRefresh,
+            32 bits
+        ),
         address = scanoutRegs.caps
     )
     busCtrl.driveAndReadMultiWord(vaddr, address = scanoutRegs.fbAddrLo)
     busCtrl.driveAndReadMultiWord(pixfmt, address = scanoutRegs.pixfmt)
     busCtrl.driveAndRead(
+        offsetX,
+        address = scanoutRegs.htiming + crtTimingRegs.front
+    )
+    busCtrl.driveAndRead(
         width,
         address = scanoutRegs.htiming + crtTimingRegs.resolution
+    )
+    busCtrl.read(
+        B(0, 32 bits),
+        address = scanoutRegs.htiming + crtTimingRegs.back
+    )
+    busCtrl.read(
+        B(0, 32 bits),
+        address = scanoutRegs.htiming + crtTimingRegs.sync
+    )
+    busCtrl.driveAndRead(
+        offsetY,
+        address = scanoutRegs.vtiming + crtTimingRegs.front
     )
     busCtrl.driveAndRead(
         height,
         address = scanoutRegs.vtiming + crtTimingRegs.resolution
     )
+    busCtrl.read(
+        B(0, 32 bits),
+        address = scanoutRegs.vtiming + crtTimingRegs.back
+    )
+    busCtrl.read(
+        B(0, 32 bits),
+        address = scanoutRegs.vtiming + crtTimingRegs.sync
+    )
 
     // Serial pass-through logic.
     when(!enabled) {
-        io.dispStream.valid          := ptTrig
-        io.dispStream.payload.regSel := regSel
-        io.dispStream.payload.data   := ptData
+        io.dispStream.valid  := ptTrig
+        io.dispStream.regSel := regSel
+        io.dispStream.data   := ptData
         busCtrl.onWrite(address = scanoutRegs.serialData) {
             ptTrig := True
             ptData := io.apb.PWDATA(7 downto 0)
@@ -199,81 +231,100 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
             ptTrig := False
         }
 
-        fsm      := Fsm.IDLE
-        cmdIndex := U(0)
-        highByte := False
+        fsm := Fsm.IDLE
     }
 
     // Trigger condition.
     when(enabled && fsm === Fsm.IDLE) {
         when(trigger) {
-            trigger := False
-            fsm     := Fsm.H_RES
+            trigger  := False
+            fsm      := Fsm.H_RES_CMD
+            x        := 0
+            y        := 0
+            cmdIndex := U(0)
+            highByte := False
         }
     }
-
-    dataValid := True
-    fsmUpdate := False
 
     // Commands in sequence:
     when(enabled) {
         when(fsm === Fsm.H_RES_CMD) {
-            io.dispStream.payload.regSel := False
-            io.dispStream.payload.data   := B(0x2a, 8 bits) // CASET.
-            when(fsmUpdate) {
+            io.dispStream.valid  := True
+            io.dispStream.regSel := False
+            io.dispStream.data   := B(0x2a, 8 bits) // CASET.
+            when(io.dispStream.fire) {
                 fsm := Fsm.H_RES
             }
 
         } elsewhen (fsm === Fsm.H_RES) {
-            io.dispStream.payload.regSel := True
-            io.dispStream.payload.data   := cmdIndex
+            io.dispStream.valid  := True
+            io.dispStream.regSel := True
+            io.dispStream.data   := cmdIndex
                 .mux(
-                    0 -> U(0, 8 bits),
-                    1 -> U(0, 8 bits),
-                    2 -> (width >> 8).resized,
-                    3 -> width(7 downto 0)
+                    0 -> (offsetX >> 8).resized,
+                    1 -> offsetX(7 downto 0),
+                    2 -> (endX >> 8).resized,
+                    3 -> endX(7 downto 0)
                 )
                 .asBits
-            when(fsmUpdate && cmdIndex === U(3)) {
+            when(io.dispStream.fire && cmdIndex === U(3)) {
                 fsm      := Fsm.V_RES_CMD
                 cmdIndex := U(0)
-            } elsewhen (fsmUpdate) {
+            } elsewhen (io.dispStream.fire) {
                 cmdIndex := cmdIndex + U(1)
             }
 
         } elsewhen (fsm === Fsm.V_RES_CMD) {
-            io.dispStream.payload.regSel := False
-            io.dispStream.payload.data   := B(0x2b, 8 bits) // RASET.
-            when(fsmUpdate) {
+            io.dispStream.valid  := True
+            io.dispStream.regSel := False
+            io.dispStream.data   := B(0x2b, 8 bits) // RASET.
+            when(io.dispStream.fire) {
                 fsm := Fsm.V_RES
             }
 
         } elsewhen (fsm === Fsm.V_RES) {
-            io.dispStream.payload.regSel := True
-            io.dispStream.payload.data   := cmdIndex
+            io.dispStream.valid  := True
+            io.dispStream.regSel := True
+            io.dispStream.data   := cmdIndex
                 .mux(
-                    0 -> U(0, 8 bits),
-                    1 -> U(0, 8 bits),
-                    2 -> (height >> 8).resized,
-                    3 -> height(7 downto 0)
+                    0 -> (offsetY >> 8).resized,
+                    1 -> offsetY(7 downto 0),
+                    2 -> (endY >> 8).resized,
+                    3 -> endY(7 downto 0)
                 )
                 .asBits
-            when(fsmUpdate && cmdIndex === U(3)) {
+            when(io.dispStream.fire && cmdIndex === U(3)) {
                 fsm      := Fsm.WRITE_CMD
                 cmdIndex := U(0)
-            } elsewhen (fsmUpdate) {
+            } elsewhen (io.dispStream.fire) {
                 cmdIndex := cmdIndex + U(1)
             }
 
         } elsewhen (fsm === Fsm.WRITE_CMD) {
-            io.dispStream.payload.regSel := False
-            io.dispStream.payload.data   := B(0x2c, 8 bits) // RAMWR.
-            when(fsmUpdate) {
+            io.dispStream.valid  := True
+            io.dispStream.regSel := False
+            io.dispStream.data   := B(0x2c, 8 bits) // RAMWR.
+            when(io.dispStream.fire) {
                 fsm := Fsm.DATA
             }
 
         } elsewhen (fsm === Fsm.DATA) {
-            io.dispStream.payload.regSel := True
+            io.dispStream.valid  := True
+            io.dispStream.regSel := True
+            io.dispStream.data   := B(0xcc, 8 bits) // Dummy data.
+            when(io.dispStream.fire && x + 1 === width && y + 1 === height) {
+                fsm := Fsm.IDLE
+                x.assignDontCare()
+                y.assignDontCare()
+            } elsewhen (io.dispStream.fire && x + 1 === width) {
+                x := 0
+                y := y + 1
+            } elsewhen (io.dispStream.fire && highByte) {
+                x := x + 1
+            }
+            when(io.dispStream.fire) {
+                highByte := !highByte
+            }
         }
     }
 }

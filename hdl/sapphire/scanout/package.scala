@@ -23,6 +23,20 @@ package object scanout {
 
         /** Scanout control: display reset (read-write; active-high). */
         val reset: Int = 1 << 4
+
+        /** Scanout capability: supports pixel format conversion. If not
+          * supported, the input buffer's format must exactly match the
+          * display's format. If supported, the pixels' formats are always
+          * converted according to [[scanoutRegs.pixfmt]].
+          */
+        val pixconv: Int = 1 << 5
+
+        /** Scanout capability: supports partial refresh. For serial scanout,
+          * [[crtTimingRegs.front]] is re-used as the start offset and, if
+          * implemented, [[crtTimingRegs.back]] is padded to display actual
+          * size.
+          */
+        val partialRefresh: Int = 1 << 6
     }
 
     object control {
@@ -55,16 +69,19 @@ package object scanout {
     /** Register offsets in bytes for horizontal or vertical timings. */
     object crtTimingRegs {
 
-        /** Front porch cycles (read-write; only with [[caps.isCrtc]]). */
+        /** Front porch cycles (read-write). If unimplemented, read-only 0.
+          */
         val front = 0
 
         /** Resolution / video cycles (read-write). */
         val resolution = 4
 
-        /** Back porch cycles (read-write; only with [[caps.isCrtc]]). */
+        /** Back porch cycles (read-write). If unimplemented, read-only 0.
+          */
         val back = 8
 
-        /** Sync pulse cycles (read-write; only with [[caps.isCrtc]]). */
+        /** Sync pulse cycles (read-write). If unimplemented, read-only 0.
+          */
         val sync = 12
     }
 
@@ -77,7 +94,9 @@ package object scanout {
         /** Control and status (read-write). */
         val control = 4
 
-        /** GPU MMU context ID (read-write; only with SAPPHIRE_OPTF_HAS_MMU). */
+        /** GPU MMU context ID (read-write; only with
+          * [[OptionalFeatDesc.hasMmu]]).
+          */
         val mmuCtx = 8
 
         /** Source virtual address (read-write). */
@@ -98,7 +117,7 @@ package object scanout {
         val vtiming = 44
 
         /** Command/data passthough port (read-write; only with
-          * SAPPHIRE_SCANOUT_CAP_IS_SERIAL).
+          * [[caps.isSerial]]).
           */
         val serialData = 60
     }
