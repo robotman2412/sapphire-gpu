@@ -5,7 +5,7 @@ package sapphire.phy.spi
 
 import spinal.core._
 import spinal.lib._
-import sapphire.util.Vacuum
+import sapphire.util._
 
 /** A simple 1-bit full duplex SPI slave implementation. Uses CPOL=0, CPHA=0. It
   * is implied that the MISO output enable is connected to the chip select
