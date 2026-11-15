@@ -7,11 +7,10 @@ import spinal.core._
 import spinal.lib._
 import sapphire.util._
 
-/** A simple 1-bit full duplex SPI slave implementation. Uses CPOL=0, CPHA=0. It
-  * is implied that the MISO output enable is connected to the chip select
-  * externally.
+/** A simple 1-bit full duplex SPI slave implementation. Uses CPOL=0, CPHA=0. It is implied that the MISO output enable
+  * is connected to the chip select externally.
   */
-case class SimpleSpiSlave() extends Component {
+case class SimpleSpiSlave(delayedMiso: Boolean = false) extends Component {
     val io = new Bundle {
 
         /** Received data flow. */
@@ -74,7 +73,7 @@ case class SimpleSpiSlave() extends Component {
         // CPHA=0: sample MOSI on the rising edge...
         when(sclkRise) {
             io.rxd.payload := io.rxd.payload(6 downto 0) ## io.mosi
-            cycle          := cycle + U(1, 3 bits)
+            cycle          := cycle + 1
             when(cycle === 7) {
                 io.rxd.valid := True
             }
@@ -83,17 +82,27 @@ case class SimpleSpiSlave() extends Component {
             when(cycle === 0) {
                 io.txd.ready := True
             }
+            if (!delayedMiso) {
+                when(cycle === 7) {
+                    io.txd.peek := True
+                    txbuf       := io.txd.payload
+                } otherwise {
+                    txbuf := txbuf(6 downto 0) ## False
+                }
+            }
         }
-        // ...and change MISO on the falling edge so the master samples a stable
-        // bit. When a byte boundary has just wrapped (cycle === 0) load the next
-        // byte instead of shifting, so its MSB appears on MISO. Peek only; the
-        // commit happens above when this byte's first bit is clocked out.
-        when(sclkFall) {
-            when(cycle === 0) {
-                io.txd.peek := True
-                txbuf       := io.txd.payload
-            } otherwise {
-                txbuf := txbuf(6 downto 0) ## False
+        if (delayedMiso) {
+            // ...and change MISO on the falling edge so the master samples a stable
+            // bit. When a byte boundary has just wrapped (cycle === 0) load the next
+            // byte instead of shifting, so its MSB appears on MISO. Peek only; the
+            // commit happens above when this byte's first bit is clocked out.
+            when(sclkFall) {
+                when(cycle === 0) {
+                    io.txd.peek := True
+                    txbuf       := io.txd.payload
+                } otherwise {
+                    txbuf := txbuf(6 downto 0) ## False
+                }
             }
         }
     }
