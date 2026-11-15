@@ -7,7 +7,7 @@ The commands are divided into categories as follows:
 - [Compute Pipeline Commands](./compute.md)
 - [Draw Call Commands](./drawing.md)
 - [General Management Commands](./management.md)
-- [Serial Interface Commands](./phys_serial.md) (only exist with the [serial interface](../interface/serial.md))
+- [Serial Interface Commands](./serial.md) (only exist with the [serial interface](../interface/serial.md))
 
 
 ## Command Summary
@@ -22,3 +22,8 @@ The commands are divided into categories as follows:
 | 9   | [READ PAYLOAD](./serial.md#read-payload-get-payload-from-previous-read-dma)         | Receive DMA read data
 | 10  | [WRITE DMA](./serial.md#write-dma-use-dma-to-write-gpu-memory)                      | Set up DMA for writing
 | 11  | [WRITE PAYLOAD](./serial.md#write-payload-send-payload-for-previous-write-dma)      | Send DMA write data
+| 12  | [DEBUG READ](./management.md#debug-read-read-a-debug-register)                    | Read a debug register
+| 13  | [DEBUG TRIGGERS](./management.md#debug-triggers-select-debug-latch-events)         | Select which events latch the debug registers
+| 14  | [DMA END](./serial.md#dma-end-tear-down-dma-transfer)                              | Tear down the current DMA transfer
+| 15  | [IOREAD](./serial.md#ioread-read-an-io-register)                                   | Read an I/O register
+| 16  | [IOWRITE](./serial.md#iowrite-write-an-io-register)                                | Write an I/O register

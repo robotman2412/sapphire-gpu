@@ -3,10 +3,10 @@ package sapphire.sim
 // Copyright (c) 2026 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
 
-import sapphire.Config
-import sapphire.dma.{DmaBus, DmaMux}
-import spinal.core.sim._
+import sapphire._
+import sapphire.dma._
 import scala.util.Random
+import spinal.core.sim._
 
 /** A controller independently negotiates setup, transfers a few beats, and
   * tears down.

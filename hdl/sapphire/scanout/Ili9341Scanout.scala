@@ -40,11 +40,9 @@ object Ili9341Scanout {
         }
     }
 
-    /** Streams out the data with configurable setup and hold time and strobe
-      * width.
+    /** Streams out the data with configurable setup and hold time and strobe width.
       */
-    case class SlowSink(setup: Int = 10, strobe: Int = 10, hold: Int = 0)
-        extends Component {
+    case class SlowSink(setup: Int = 10, strobe: Int = 10, hold: Int = 0) extends Component {
         import SlowSink._
         assert(setup >= 1)
         assert(strobe >= 1)
@@ -96,32 +94,51 @@ object Ili9341Scanout {
             io.data   := io.in.data
         }
     }
-}
 
-/** A scanout engine for use with ILI9341-based displays using the 8-bit
-  * parallel interface.
-  */
-case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
-    import Ili9341Scanout._
-    val io = new Bundle {
+    case class IO(cfg: SapphireCfg) extends GenericScanout.IO {
 
         /** APB slave bus. */
-        val apb = slave port Apb3(8, 32)
+        override val apb = slave port Apb3(7, 32)
+
+        /** Externally visible I/O. */
+        override val external = master port ExternalIO(cfg)
 
         /** DMA bus that pixel data is read from. */
         val dma = master port DmaBus(cfg.vaddrBits bits)
+    }
+
+    case class ExternalIO(cfg: SapphireCfg) extends Bundle with IMasterSlave {
 
         /** Active-high display reset output. */
-        val resetOut = out port Bool()
+        val resetOut = Bool()
 
         /** Active-high display chip select output. */
-        val chipSelect = out port Bool()
+        val chipSelect = Bool()
 
         /** Display command and data stream. */
-        val dispStream = master port Stream(Packet())
+        val dispStream = Stream(Packet())
+
+        override def asMaster(): Unit = {
+            out(resetOut, chipSelect)
+            master(dispStream)
+        }
     }
-    io.dispStream.valid   := False
-    io.dispStream.payload.assignDontCare()
+
+    def builder(ctx: SapphireGpu.ComponentCtx): Ili9341Scanout = {
+        val scanout = Ili9341Scanout(ctx.cfg)
+        ctx.connectDma(scanout.io.dma)
+        scanout
+    }
+}
+
+/** A scanout engine for use with ILI9341-based displays using the 8-bit parallel interface.
+  */
+case class Ili9341Scanout(cfg: SapphireCfg) extends GenericScanout(cfg) {
+    import Ili9341Scanout._
+    override val io = new IO(cfg)
+    val ext         = io.external
+    ext.dispStream.valid  := False
+    ext.dispStream.payload.assignDontCare()
     io.dma.setup.setup    := False
     io.dma.setup.write    := False
     io.dma.setup.teardown := False
@@ -142,7 +159,7 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     val regSel   = RegInit(False) // Register select for pass-through interface.
     val reset    = RegInit(False) // Display reset line.
     val forceSel = RegInit(False) // Force enable chip select.
-    io.resetOut := reset
+    ext.resetOut := reset
 
     // APB-inferred write trigger for pass-through interface.
     val ptTrig = RegInit(False)
@@ -150,7 +167,7 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
 
     // The sink holds ready low through setup, strobe and hold, keeping the
     // display selected until the last accepted byte has finished transmitting.
-    io.chipSelect := enabled || forceSel || !io.dispStream.ready
+    ext.chipSelect := enabled || forceSel || !ext.dispStream.ready
 
     // Configuration registers.
     val pixfmt  = PixelFormat()
@@ -230,14 +247,14 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
 
     // Serial pass-through logic.
     when(!enabled) {
-        io.dispStream.valid  := ptTrig
-        io.dispStream.regSel := regSel
-        io.dispStream.data   := ptData
+        ext.dispStream.valid  := ptTrig
+        ext.dispStream.regSel := regSel
+        ext.dispStream.data   := ptData
         busCtrl.onWrite(address = scanoutRegs.serialData) {
             ptTrig := True
             ptData := io.apb.PWDATA(7 downto 0)
         }
-        when(io.dispStream.ready && ptTrig) {
+        when(ext.dispStream.ready && ptTrig) {
             ptTrig := False
         }
 
@@ -251,8 +268,7 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
         when(io.dma.setup.setupReady) {
             isDmaSetup := True
         }
-    }
-    when(enabled && fsm === Fsm.DMA_STOP && isDmaSetup) {
+    } elsewhen ((!enabled || fsm === Fsm.DMA_STOP) && isDmaSetup) {
         // Tear down DMA after the update is finished.
         io.dma.setup.teardown := True
         when(io.dma.setup.teardownReady) {
@@ -275,17 +291,17 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
     // Commands in sequence:
     when(enabled) {
         when(fsm === Fsm.H_RES_CMD) {
-            io.dispStream.valid  := True
-            io.dispStream.regSel := False
-            io.dispStream.data   := B(0x2a, 8 bits) // CASET.
-            when(io.dispStream.fire) {
+            ext.dispStream.valid  := True
+            ext.dispStream.regSel := False
+            ext.dispStream.data   := B(0x2a, 8 bits) // CASET.
+            when(ext.dispStream.fire) {
                 fsm := Fsm.H_RES
             }
 
         } elsewhen (fsm === Fsm.H_RES) {
-            io.dispStream.valid  := True
-            io.dispStream.regSel := True
-            io.dispStream.data   := cmdIndex
+            ext.dispStream.valid  := True
+            ext.dispStream.regSel := True
+            ext.dispStream.data   := cmdIndex
                 .mux(
                     0 -> (offsetX >> 8).resized,
                     1 -> offsetX(7 downto 0),
@@ -293,25 +309,25 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
                     3 -> endX(7 downto 0)
                 )
                 .asBits
-            when(io.dispStream.fire && cmdIndex === U(3)) {
+            when(ext.dispStream.fire && cmdIndex === U(3)) {
                 fsm      := Fsm.V_RES_CMD
                 cmdIndex := U(0)
-            } elsewhen (io.dispStream.fire) {
+            } elsewhen (ext.dispStream.fire) {
                 cmdIndex := cmdIndex + U(1)
             }
 
         } elsewhen (fsm === Fsm.V_RES_CMD) {
-            io.dispStream.valid  := True
-            io.dispStream.regSel := False
-            io.dispStream.data   := B(0x2b, 8 bits) // RASET.
-            when(io.dispStream.fire) {
+            ext.dispStream.valid  := True
+            ext.dispStream.regSel := False
+            ext.dispStream.data   := B(0x2b, 8 bits) // RASET.
+            when(ext.dispStream.fire) {
                 fsm := Fsm.V_RES
             }
 
         } elsewhen (fsm === Fsm.V_RES) {
-            io.dispStream.valid  := True
-            io.dispStream.regSel := True
-            io.dispStream.data   := cmdIndex
+            ext.dispStream.valid  := True
+            ext.dispStream.regSel := True
+            ext.dispStream.data   := cmdIndex
                 .mux(
                     0 -> (offsetY >> 8).resized,
                     1 -> offsetY(7 downto 0),
@@ -319,27 +335,27 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
                     3 -> endY(7 downto 0)
                 )
                 .asBits
-            when(io.dispStream.fire && cmdIndex === U(3)) {
+            when(ext.dispStream.fire && cmdIndex === U(3)) {
                 fsm      := Fsm.WRITE_CMD
                 cmdIndex := U(0)
-            } elsewhen (io.dispStream.fire) {
+            } elsewhen (ext.dispStream.fire) {
                 cmdIndex := cmdIndex + U(1)
             }
 
         } elsewhen (fsm === Fsm.WRITE_CMD) {
-            io.dispStream.valid  := True
-            io.dispStream.regSel := False
-            io.dispStream.data   := B(0x2c, 8 bits) // RAMWR.
-            when(io.dispStream.fire) {
+            ext.dispStream.valid  := True
+            ext.dispStream.regSel := False
+            ext.dispStream.data   := B(0x2c, 8 bits) // RAMWR.
+            when(ext.dispStream.fire) {
                 fsm := Fsm.DATA
             }
 
         } elsewhen (fsm === Fsm.DATA) {
-            io.dma.rdata.ready   := io.dispStream.ready
-            io.dispStream.valid  := io.dma.rdata.valid
-            io.dispStream.regSel := True
-            io.dispStream.data   := io.dma.rdata.payload
-            when(io.dispStream.fire && highByte) {
+            io.dma.rdata.ready    := ext.dispStream.ready
+            ext.dispStream.valid  := io.dma.rdata.valid
+            ext.dispStream.regSel := True
+            ext.dispStream.data   := io.dma.rdata.payload
+            when(ext.dispStream.fire && highByte) {
                 when(x + 1 === width && y + 1 === height) {
                     fsm := Fsm.DMA_STOP
                     x.assignDontCare()
@@ -351,7 +367,7 @@ case class Ili9341Scanout(cfg: SapphireCfg) extends Component {
                     x := x + 1
                 }
             }
-            when(io.dispStream.fire) {
+            when(ext.dispStream.fire) {
                 highByte := !highByte
             }
 

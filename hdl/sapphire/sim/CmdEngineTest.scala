@@ -48,13 +48,13 @@ case class CmdEngineDut(cfg: SapphireCfg) extends Component {
     cmdEngine.io.irqIn      := io.irqIn
 
     // Control registers APB bus.
-    val apb     = Apb3(16, 32)
+    val apb     = Apb3(24, 32)
     cmdEngine.io.apb <> apb
     val apbRegs = Apb3SlaveFactory(apb)
     val regRw   = Reg(Bits(32 bits))
     io.regRw := regRw
-    apbRegs.driveAndRead(regRw, address = 1)
-    apbRegs.read(io.regRo, address = 6)
+    apbRegs.driveAndRead(regRw, address = 0xab0001)
+    apbRegs.read(io.regRo, address = 0xff0006)
 
     // Real debug register file so the latch behaviour can be exercised.
     val debugRegs = DebugRegFile(Seq(32 bits, 8 bits))
@@ -133,7 +133,7 @@ object CmdEngineTest extends App {
 
             // IOREAD
             dut.io.regRo #= 0xcafebabeL;
-            runCmd(Seq(15, 0x06, 0x00))
+            runCmd(Seq(15, 0x06, 0x00, 0xff))
             dut.clockDomain.waitSampling(
                 2
             ) // The command interface is very fast; give APB time to catch up.
@@ -148,14 +148,14 @@ object CmdEngineTest extends App {
             )
 
             // IOWRITE
-            runCmd(Seq(16, 0x01, 0x00, 0x11, 0x22, 0x33, 0x44))
+            runCmd(Seq(16, 0x01, 0x00, 0xab, 0x11, 0x22, 0x33, 0x44))
             dut.clockDomain.waitSampling(
                 4
             ) // The command interface is very fast; give APB time to catch up.
             println("IOWRITE: 0x%08x".format(dut.io.regRw.toInt))
             assert(dut.io.regRw.toInt == 0x44332211)
 
-            runCmd(Seq(16, 0x01, 0x00, 0xde, 0xc0, 0xd0, 0xba))
+            runCmd(Seq(16, 0x01, 0x00, 0xab, 0xde, 0xc0, 0xd0, 0xba))
             dut.clockDomain.waitSampling(
                 4
             ) // The command interface is very fast; give APB time to catch up.
@@ -193,6 +193,7 @@ object CmdEngineTest extends App {
                     .format(desc(23), desc(22), desc(21), desc(20))
             )
             println("#Coord: %d".format(desc(24)))
+            println("#Texture: %d".format(desc(25)))
 
             // ---- Vacuum peek/commit contract (split-read fix) --------------
             // The dummy DMA streams an incrementing byte (low 8 bits of addr).

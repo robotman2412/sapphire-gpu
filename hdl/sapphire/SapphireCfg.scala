@@ -2,7 +2,7 @@ package sapphire
 
 import spinal.core._
 
-// Copyright (c) 2025 Julian Scheffers
+// Copyright (c) 2025-2026 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
 
 object SapphireCfg {
@@ -34,6 +34,9 @@ object SapphireCfg {
 
         /** Number of bits used for pixel coordinates. */
         val coordBits = UInt(8 bits)
+
+        /** Number of texture slots. */
+        val textureSlots = UInt(8 bits)
     }
 
     case class RequiredFeatDesc() extends Bundle {
@@ -64,8 +67,12 @@ object SapphireCfg {
 case class SapphireCfg(
     /** RAM size. */
     ramSize: Long,
+    /** Number of scanout engines. */
+    scanoutCount: Int = 0,
     /** Pixel coordinate bit width. */
     coordBits: Int = 12,
+    /** Number of texture slots. */
+    textureSlots: Int = 2,
     /** Pipeline topology configuration. */
     plCfg: SapphirePlCfg = SapphirePlCfg(),
     /** Enable 3D support. */
@@ -75,6 +82,10 @@ case class SapphireCfg(
     /** Enable memory-mapping unit. */
     hasMmu: Boolean = false
 ) {
+    assert(coordBits >= 8, "Minimum number of coordinate bits is 8")
+    assert(coordBits <= 16, "Maximum number of coordinate bits is 16")
+    assert(textureSlots >= 2, "Minimum amount of texture slots is 2")
+    assert(textureSlots <= 256, "Maximum number of texture slots is 256")
 
     /** Virtual address bit width. */
     val vaddrBits = log2Up(ramSize)
@@ -98,6 +109,7 @@ case class SapphireCfg(
         desc.optionalFeatures.hasMmu  := Bool(hasMmu)
         desc.optionalFeatures._resvd0 := B(0)
         desc.coordBits                := U(coordBits, 8 bits)
+        desc.textureSlots             := U(textureSlots, 8 bits)
         desc
     }
 }

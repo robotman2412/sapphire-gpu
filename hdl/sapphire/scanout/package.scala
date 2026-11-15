@@ -5,6 +5,8 @@ package sapphire
 
 import sapphire._
 import spinal.core._
+import spinal.lib._
+import spinal.lib.bus.amba3.apb._
 
 package object scanout {
     object caps {
@@ -71,54 +73,74 @@ package object scanout {
 
         /** Front porch cycles (read-write). If unimplemented, read-only 0.
           */
-        val front = 0
+        val front = 0x00
 
         /** Resolution / video cycles (read-write). */
-        val resolution = 4
+        val resolution = 0x04
 
         /** Back porch cycles (read-write). If unimplemented, read-only 0.
           */
-        val back = 8
+        val back = 0x08
 
         /** Sync pulse cycles (read-write). If unimplemented, read-only 0.
           */
-        val sync = 12
+        val sync = 0x0c
     }
 
     /** Register offsets in bytes for scanout engines in the I/O space. */
     object scanoutRegs {
 
         /** Capabilities (read-only). */
-        val caps = 0
+        val caps = 0x00
 
         /** Control and status (read-write). */
-        val control = 4
+        val control = 0x04
 
         /** GPU MMU context ID (read-write; only with
           * [[OptionalFeatDesc.hasMmu]]).
           */
-        val mmuCtx = 8
+        val mmuCtx = 0x08
 
         /** Source virtual address (read-write). */
-        val fbAddrLo = 12
+        val fbAddrLo = 0x0c
 
         /** Source virtual address (read-write; only with
           * SAPPHIRE_REQF_IS_64BIT).
           */
-        val fbAddrHi = 16
+        val fbAddrHi = 0x10
 
         /** Pixel color format (read-write). */
-        val pixfmt = 20
+        val pixfmt = 0x14
 
         /** Horizontal timings (read-write; resolution only for non-CRTC). */
-        val htiming = 28
+        val htiming = 0x1c
 
         /** Vertical timings (read-write; resolution only for non-CRTC). */
-        val vtiming = 44
+        val vtiming = 0x2c
 
         /** Command/data passthough port (read-write; only with
           * [[caps.isSerial]]).
           */
-        val serialData = 60
+        val serialData = 0x3c
     }
+
+    /** Address stride between each scanout engine. */
+    val scanoutEngineStride = 0x80
+}
+
+object GenericScanout {
+    abstract class IO extends Bundle {
+
+        /** APB slave bus. */
+        val apb: Apb3
+
+        /** Externally visible I/O. The provided bundle must implement
+          * [[IMasterSlave]] as master and be clonable.
+          */
+        val external: Bundle with IMasterSlave = null
+    }
+}
+
+abstract class GenericScanout(cfg: SapphireCfg) extends Component {
+    val io: GenericScanout.IO
 }

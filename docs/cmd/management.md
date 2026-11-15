@@ -56,3 +56,42 @@ Parameter layout:
 | 0      | 4    | irq_enable | Bitmask of which [interrupts](../interrupts.md) should be enabled
 
 Returns nothing.
+
+
+## DEBUG READ: Read A Debug Register
+Reads a latched snapshot of an internal debug register. Only available when debug support is enabled.
+
+Code: 12.
+
+Parameter layout:
+| Offset | Size | Name       | Description
+| :----- | :--- | :--------- | :----------
+| 0      | 2    | index      | Debug register index
+
+Return value layout:
+| Offset | Size | Name       | Description
+| :----- | :--- | :--------- | :----------
+| 0      | 4    | data       | Latched debug register value
+
+
+## DEBUG TRIGGERS: Select Debug Latch Events
+Selects which events snapshot all debug registers. Only available when debug support is enabled.
+The mask resets to 1 (DEBUG READ command byte received).
+
+Code: 13.
+
+Parameter layout:
+| Offset | Size | Name       | Description
+| :----- | :--- | :--------- | :----------
+| 0      | 1    | triggers   | Bitmask of debug latch events
+
+The bitfield triggers:
+| Bit | Name    | Description
+| :-- | :------ | :----------
+| 0   | dbgcmd  | DEBUG READ command byte received
+| 1   | cmdbyte | Any other command byte received
+| 2   | dmaerr  | DMA error occurred
+| 3   | dmabyte | DMA data byte transferred
+| 4   | irq     | Enabled interrupt output rose
+
+Returns nothing.

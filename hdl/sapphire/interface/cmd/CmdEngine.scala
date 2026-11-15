@@ -12,8 +12,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb._
 
 /** Serial interface command engine. */
-case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
-    extends Component {
+case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = false) extends Component {
     val io = new Bundle {
 
         /** Active-high chip select input. */
@@ -35,7 +34,7 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
         val dma = master port DmaBus(cfg.vaddrBits bits)
 
         /** GPU I/O register bus. */
-        val apb = master port Apb3(16, 32)
+        val apb = master port Apb3(24, 32)
 
         /** Debug register read bus. */
         val debug = enableDebug generate (master port DebugBus())
@@ -196,11 +195,12 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
     }
     // DMA END: Tear down DMA transfer.
     addCommand(14) { _ =>
-        io.dma.setup.teardown := isDmaSetup
+        io.dma.setup.setup    := False
+        io.dma.setup.teardown := isDmaSetup || (io.dma.setup.setup && io.dma.setup.setupReady)
         null
     }
     // IOREAD: Read I/O register.
-    addCommand(15, UInt(16 bits)) { addr =>
+    addCommand(15, UInt(24 bits)) { addr =>
         // No immediate response from APB; it is loaded into `resp` asynchronously.
         io.apb.PADDR  := addr
         io.apb.PWDATA.assignDontCare
@@ -210,9 +210,9 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
         null
     }
     // IOWRITE: Write I/O register.
-    addCommand(16, Bits(48 bits)) { packed =>
-        val addr  = packed(15 downto 0).asUInt
-        val wdata = packed(47 downto 16)
+    addCommand(16, Bits(56 bits)) { packed =>
+        val addr  = packed(23 downto 0).asUInt
+        val wdata = packed(55 downto 24)
         io.apb.PADDR  := addr
         io.apb.PWDATA := wdata
         io.apb.PWRITE := True
@@ -228,7 +228,7 @@ case class CmdEngine(cfg: SapphireCfg, enableDebug: Boolean = true)
     val param = Reg(Bits(paramBits bits))
 
     /** How many parameter bytes have been received so far. */
-    val paramLen = RegInit(U(0, log2Up(param.getBitsWidth / 8 + 1) bits))
+    val paramLen = RegInit(U(0, log2Up(param.getBitsWidth / 8 + 2) bits))
     when(chipSelectFalling) {
         paramLen := U(0)
     }

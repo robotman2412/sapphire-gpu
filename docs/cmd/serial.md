@@ -19,8 +19,8 @@ Returns nothing.
 
 ## READ PAYLOAD: Get Payload From Previous READ DMA
 Returns the read data as set up by the previous READ DMA command.
-More or less bytes may be read than the size hint.
-After the transfer for this command ends, the DMA is torn down.
+The number of bytes read determines the transfer length.
+Use [DMA END](#dma-end-tear-down-dma-transfer) to tear down the DMA after reading the response.
 
 Code: 9.
 
@@ -46,11 +46,51 @@ Returns nothing.
 
 ## WRITE PAYLOAD: Send Payload For Previous WRITE DMA
 Specifies the write data as set up by the previous WRITE DMA command.
-More or less bytes may be written than the size hint.
-After the transfer for this command ends, the DMA is torn down.
+The number of bytes written determines the transfer length.
+Use [DMA END](#dma-end-tear-down-dma-transfer) to tear down the DMA after sending the payload.
 
 Code: 11.
 
 Parameters: the raw stream of bytes to write.
+
+Returns nothing.
+
+
+## DMA END: Tear Down DMA Transfer
+Tears down the current DMA transfer. The driver calls this command DMA TEARDOWN.
+
+Code: 14.
+
+No parameters.
+
+Returns nothing.
+
+
+## IOREAD: Read An I/O Register
+Reads a 32-bit GPU I/O register in the 24-bit I/O address space over the internal APB bus.
+
+Code: 15.
+
+Parameter layout:
+| Offset | Size | Name       | Description
+| :----- | :--- | :--------- | :----------
+| 0      | 3    | addr       | I/O register byte address
+
+Return value layout:
+| Offset | Size | Name       | Description
+| :----- | :--- | :--------- | :----------
+| 0      | 4    | data       | I/O register value
+
+
+## IOWRITE: Write An I/O Register
+Writes a 32-bit GPU I/O register in the 24-bit I/O address space over the internal APB bus.
+
+Code: 16.
+
+Parameter layout:
+| Offset | Size | Name       | Description
+| :----- | :--- | :--------- | :----------
+| 0      | 3    | addr       | I/O register byte address
+| 3      | 4    | data       | Value to write
 
 Returns nothing.
