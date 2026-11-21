@@ -99,15 +99,17 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
     val manageRow = RegInit(U(0, log2Up(cacheCfg.lines) bits))
 
     // Action being requested of the cache memories by either AHB or management.
-    val request      = Request()
-    val reqAddr      = UInt(ahbCfg.addressWidth bits)
-    val reqWriteData = Vec.fill(wordPerLine)(Bits(ahbCfg.dataWidth bits))
-    val reqWriteMask = Bits(cacheCfg.lineSize bits)
-    val reqReadData  = Vec.fill(wordPerLine)(Bits(ahbCfg.dataWidth bits))
-    val ackRequest   = Bool()
-    val finRequest   = Bool()
+    val request       = Request()
+    val reqAddr       = UInt(ahbCfg.addressWidth bits)
+    val reqWriteData  = Vec.fill(wordPerLine)(Bits(ahbCfg.dataWidth bits))
+    val reqWriteMask  = Bits(cacheCfg.lineSize bits)
+    val reqReadData   = Vec.fill(wordPerLine)(Bits(ahbCfg.dataWidth bits))
+    val ackRequest    = Bool()
+    val finRequest    = Bool()
+    val reqSlaveStall = Bool()
     reqWriteData.assignDontCare()
-    reqWriteMask := 0
+    reqWriteMask  := 0
+    reqSlaveStall := False
 
     // Simplified AHB master interface.
     val ucRead      = Bool()
@@ -217,7 +219,9 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
             nextHtrans    := False
             reqInProgress := False
         }
-        when((!htrans || io.slave.HREADY) && io.slave.HSEL && io.slave.HTRANS(1)) {
+        when(io.slave.HREADYOUT && !io.slave.HREADY) {
+            reqSlaveStall := reqInProgress
+        } elsewhen ((!htrans || io.slave.HREADY) && io.slave.HSEL && io.slave.HTRANS(1)) {
             // Start request.
             nextHtrans := True
             nextHwrite := io.slave.HWRITE
@@ -442,7 +446,13 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
                     }
                 } elsewhen (process === Request.WRITE) {
                     // Write to resident line.
-                    fsm                        := Fsm.IDLE
+                    when(reqSlaveStall) {
+                        // Read under write doesn't matter here.
+                        // At most, a second write for marking as dirty happens.
+                        tag.read := True
+                    } otherwise {
+                        fsm := Fsm.IDLE
+                    }
                     data.write                 := True
                     data.addr                  := line
                     data.writeData(matchIndex) := reqWriteData
@@ -456,12 +466,17 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
                     } elsewhen (request =/= Request.READ) {
                         // Read is the only request to immediately need data mem.
                         // So it is incompatible with this write, which is still using it.
-                        ackRequest := True
+                        ackRequest := !reqSlaveStall
                     }
                 } otherwise {
                     // Other (usually read) access to resident line.
-                    fsm        := Fsm.IDLE
-                    ackRequest := True
+                    when(reqSlaveStall) {
+                        tag.read  := True
+                        data.read := True
+                    } otherwise {
+                        fsm        := Fsm.IDLE
+                        ackRequest := True
+                    }
                     finRequest := True
                 }
             }

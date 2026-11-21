@@ -66,10 +66,11 @@ case class Ahb3CacheDut(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Comp
     io.busy        := cache.io.busy
 }
 
-class Ahb3CacheTestCase(dut: Ahb3CacheDut) {
+class Ahb3CacheTestCase(dut: Ahb3CacheDut, slaveStallRandom: Option[Random] = None) {
     val cacheCfg  = dut.cacheCfg
     val ahbCfg    = dut.ahbCfg
     var hasErrors = false
+    private var slaveStalled = false
 
     dut.io.clear #= false
     dut.io.flush #= false
@@ -84,9 +85,40 @@ class Ahb3CacheTestCase(dut: Ahb3CacheDut) {
     dut.io.ahb.HREADY #= true
 
     forkSensitive(dut.io.ahb.HREADYOUT) {
-        dut.io.ahb.HREADY #= dut.io.ahb.HREADYOUT.toBoolean
+        driveSlaveReady()
     }
     dut.clockDomain.forkStimulus(period = 10)
+
+    private def driveSlaveReady(): Unit = {
+        dut.io.ahb.HREADY #= (dut.io.ahb.HREADYOUT.toBoolean && !slaveStalled)
+    }
+
+    private def waitForResponse(addr: Long, operation: String): Unit = {
+        val start = simTime()
+        def waitUntilReady(): Unit = {
+            while (!dut.io.ahb.HREADYOUT.toBoolean) {
+                if (simTime() - start >= 10000) {
+                    simFailure(f"$operation at 0x$addr%04x timed out waiting for HREADYOUT")
+                }
+                dut.clockDomain.waitSampling()
+                sleep(1)
+            }
+        }
+
+        sleep(1)
+        waitUntilReady()
+        slaveStallRandom.foreach { random =>
+            if (random.nextInt(32) == 0) {
+                slaveStalled = true
+                driveSlaveReady()
+                dut.clockDomain.waitSampling(2 + random.nextInt(2))
+                sleep(1)
+                slaveStalled = false
+                driveSlaveReady()
+                waitUntilReady()
+            }
+        }
+    }
 
     def write(addr: Long, sizeExp: Int, data: BigInt): Unit = {
         val size       = 1 << sizeExp
@@ -104,11 +136,7 @@ class Ahb3CacheTestCase(dut: Ahb3CacheDut) {
         dut.io.ahb.HTRANS #= 0 // IDLE
         dut.io.ahb.HWDATA #= splatData
 
-        sleep(1)
-        while (!dut.io.ahb.HREADYOUT.toBoolean) {
-            dut.clockDomain.waitSampling()
-            sleep(1)
-        }
+        waitForResponse(addr, "Write")
     }
 
     def read(addr: Long, sizeExp: Int): BigInt = {
@@ -122,11 +150,7 @@ class Ahb3CacheTestCase(dut: Ahb3CacheDut) {
         dut.clockDomain.waitSampling()
         dut.io.ahb.HTRANS #= 0 // IDLE
 
-        sleep(1)
-        while (!dut.io.ahb.HREADYOUT.toBoolean) {
-            dut.clockDomain.waitSampling()
-            sleep(1)
-        }
+        waitForResponse(addr, "Read")
         val raw = dut.io.ahb.HRDATA.toBigInt
 
         (raw >> (8 * index)) & ((BigInt(1) << (8 * size)) - 1)
@@ -200,7 +224,7 @@ case class Ahb3CacheTestBasic(dut: Ahb3CacheDut) extends Ahb3CacheTestCase(dut) 
     assert(!hasErrors)
 }
 
-case class Ahb3CacheTestFuzz(dut: Ahb3CacheDut) extends Ahb3CacheTestCase(dut) {
+case class Ahb3CacheTestFuzz(dut: Ahb3CacheDut) extends Ahb3CacheTestCase(dut, Some(new Random(43L))) {
     val memory = new Array[Byte](256)
     val seed   = 42L
     val random = new Random(seed)
