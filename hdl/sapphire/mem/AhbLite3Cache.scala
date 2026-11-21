@@ -365,19 +365,35 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
             }
         }
 
+        val anyValid   = tag.readData.ways.map(_.valid).orR
+        val anyDirty   = tag.readData.ways.map(_.dirty).orR
+        val firstDirty = UInt(log2Up(cacheCfg.ways) bits)
+        firstDirty.assignDontCare()
+        switch(tag.readData.ways.map(_.dirty).asBits) {
+            for (i <- 0 until cacheCfg.ways) {
+                is(1 << i) {
+                    firstDirty := i
+                }
+            }
+        }
+
         // Evict/fill selection.
-        val fillIndex      = tag.readData.selectEviction()
-        val afterFillIndex = UInt(log2Up(cacheCfg.ways) bits)
-        afterFillIndex := fillIndex + 1
+        val tagSelectedEviction = tag.readData.selectEviction()
+        val fillIndex           = Reg(UInt(log2Up(cacheCfg.ways) bits))
+        val nextFillIndex       = UInt(log2Up(cacheCfg.ways) bits)
+        val afterFillIndex      = UInt(log2Up(cacheCfg.ways) bits)
+        afterFillIndex := nextFillIndex + 1
+        nextFillIndex  := fillIndex
+        fillIndex      := nextFillIndex
         if ((cacheCfg.ways & (cacheCfg.ways - 1)) != 0) {
-            when(fillIndex === cacheCfg.ways - 1) {
+            when(nextFillIndex === cacheCfg.ways - 1) {
                 afterFillIndex := 0
             }
         }
 
-        ucWriteData := data.readData(fillIndex)
+        ucWriteData := data.readData(nextFillIndex)
         when(ucWrite) {
-            ucAddr := (tag.readData(fillIndex).upperAddr ## line).asUInt
+            ucAddr := (tag.readData(nextFillIndex).upperAddr ## line).asUInt
         } otherwise {
             ucAddr := procAddr >> log2Up(cacheCfg.lineSize)
         }
@@ -388,10 +404,35 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
             is(Fsm.IDLE) {
                 ackRequest := True
             }
+            is(Fsm.SYNC) {
+                when(anyDirty) {
+                    // Dirty lines are resident; write-back.
+                    nextFillIndex := firstDirty
+                    fsm           := Fsm.EVICT
+                    data.read     := True
+                    ucWrite       := True
+                } elsewhen (process === Request.FLUSH && anyValid) {
+                    // Clean lines are resident; mark invalid.
+                    tag.write          := True
+                    tag.writeData.next := 0
+                    for (i <- 0 until cacheCfg.ways) {
+                        tag.writeData(i).valid := False
+                        tag.writeData(i).dirty := False
+                        tag.writeData(i).upperAddr.assignDontCare()
+                    }
+                    fsm := Fsm.IDLE
+                    finRequest := True
+                } otherwise {
+                    // Nothing dirty; no sync.
+                    ackRequest := True
+                    finRequest := True
+                }
+            }
             is(Fsm.ACCESS) {
                 when(!hasMatch) {
                     // Not resident.
-                    when(tag.readData(fillIndex).dirty) {
+                    nextFillIndex := tagSelectedEviction
+                    when(tag.readData(tagSelectedEviction).dirty) {
                         fsm       := Fsm.EVICT
                         data.read := True
                         ucWrite   := True
@@ -427,19 +468,19 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
             is(Fsm.FILL) {
                 ucRead := True
                 when(ucReady) {
-                    data.write                         := True
-                    data.writeData(fillIndex)          := ucReadData
-                    data.writeMask(fillIndex)          := B((BigInt(1) << cacheCfg.lineSize) - 1)
-                    tag.write                          := True
+                    data.write                             := True
+                    data.writeData(nextFillIndex)          := ucReadData
+                    data.writeMask(nextFillIndex)          := B((BigInt(1) << cacheCfg.lineSize) - 1)
+                    tag.write                              := True
                     if (cacheCfg.ways > 1) {
                         tag.writeData.ways := tag.readData.ways
                     }
-                    tag.writeData.next                 := afterFillIndex
-                    tag.writeData(fillIndex).valid     := True
-                    tag.writeData(fillIndex).dirty     := process === Request.WRITE
-                    tag.writeData(fillIndex).upperAddr := procUpperAddr
+                    tag.writeData.next                     := afterFillIndex
+                    tag.writeData(nextFillIndex).valid     := True
+                    tag.writeData(nextFillIndex).dirty     := process === Request.WRITE
+                    tag.writeData(nextFillIndex).upperAddr := procUpperAddr
                     // TODO: Read/write forwarding.
-                    fsm                                := Fsm.BUSY
+                    fsm                                    := Fsm.BUSY
                 } otherwise {
                     tag.read := True
                 }
@@ -450,7 +491,11 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
                     // Data saved successfully, switch straight to refill.
                     fsm := Fsm.FILL
                 } elsewhen (ucReady) {
-                    // TODO: Must be flush/sync request, go to next index or complete.
+                    // Flush/sync request; update tags and check line again.
+                    tag.write                          := True
+                    tag.writeData                      := tag.readData
+                    tag.writeData(nextFillIndex).dirty := False
+                    fsm                                := Fsm.BUSY
                 } otherwise {
                     data.read := True
                     tag.read  := True
@@ -474,8 +519,12 @@ case class AhbLite3Cache(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Com
                     tag.read  := True
                     data.read := True
                 }
-                is(Request.WRITE, Request.FLUSH, Request.SYNC) {
+                is(Request.WRITE) {
                     fsm      := Fsm.ACCESS
+                    tag.read := True
+                }
+                is(Request.FLUSH, Request.SYNC) {
+                    fsm      := Fsm.SYNC
                     tag.read := True
                 }
                 is(Request.CLEAR) {

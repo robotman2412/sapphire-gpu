@@ -191,12 +191,23 @@ case class Ahb3CacheTestFuzz(dut: Ahb3CacheDut) extends Ahb3CacheTestCase(dut) {
     for (operation <- 0 until 10000) {
         val sizeExp = random.nextInt(log2Up(ahbCfg.bytePerWord) + 1)
         val addr    = random.nextInt(memory.length >> sizeExp) << sizeExp
-        if (random.nextBoolean()) {
-            val value = BigInt(8 << sizeExp, random)
-            write(addr, sizeExp, value)
-            writeExpected(addr, sizeExp, value)
+        if (random.nextFloat() < 0.03) {
+            if (random.nextBoolean()) {
+                dut.io.flush #= true
+            } else {
+                dut.io.sync #= true
+            }
+            dut.clockDomain.waitSampling()
+            dut.io.flush #= false
+            dut.io.sync #= false
         } else {
-            expect(addr, sizeExp, readExpected(addr, sizeExp))
+            if (random.nextBoolean()) {
+                val value = BigInt(8 << sizeExp, random)
+                write(addr, sizeExp, value)
+                writeExpected(addr, sizeExp, value)
+            } else {
+                expect(addr, sizeExp, readExpected(addr, sizeExp))
+            }
         }
     }
 
