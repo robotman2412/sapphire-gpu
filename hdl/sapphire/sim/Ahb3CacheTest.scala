@@ -13,18 +13,53 @@ import scala.util.Random
 
 case class Ahb3CacheDut(cacheCfg: CacheCfg, ahbCfg: AhbLite3Config) extends Component {
     val io = new Bundle {
-        val ahb   = slave port AhbLite3(ahbCfg)
+        val ahb = slave port AhbLite3(ahbCfg)
+
         val sync  = in port Bool()
         val flush = in port Bool()
         val clear = in port Bool()
         val busy  = out port Bool()
+
+        val stallInject = in port Bool()
     }
 
     val cache = AhbLite3Cache(cacheCfg, ahbCfg)
     val ram   = AhbLite3OnChipRam(ahbCfg, 0x1000)
 
     cache.io.slave <> io.ahb
-    cache.io.master <> ram.io.ahb
+
+    val master  = cache.io.master
+    val target  = ram.io.ahb
+    val pending = RegInit(False)
+    val capture = io.stallInject && !pending && master.HSEL && master.HTRANS(1)
+    when(capture) {
+        pending := True
+    } elsewhen (!io.stallInject && target.HREADYOUT) {
+        pending := False
+    }
+
+    def buffered[T <: Data](signal: T): T = {
+        val saved = RegNextWhen(signal, capture)
+        pending.mux(saved, signal)
+    }
+
+    target.HADDR     := buffered(master.HADDR)
+    target.HWRITE    := buffered(master.HWRITE)
+    target.HSIZE     := buffered(master.HSIZE)
+    target.HBURST    := buffered(master.HBURST)
+    target.HPROT     := buffered(master.HPROT)
+    target.HTRANS    := io.stallInject.mux(AhbLite3.IDLE, buffered(master.HTRANS))
+    target.HMASTLOCK := buffered(master.HMASTLOCK)
+    target.HSEL      := buffered(master.HSEL)
+
+    // The previous address phase can complete at the RAM as the stall begins.
+    // Write data still belongs to that phase, and the RAM holds read data while idle.
+    target.HWDATA    := master.HWDATA
+    target.HREADY    := target.HREADYOUT
+    master.HREADYOUT := target.HREADYOUT && !io.stallInject
+    master.HRESP     := target.HRESP
+    master.HRDATA    := target.HRDATA
+
     cache.io.sync  := io.sync
     cache.io.flush := io.flush
     cache.io.clear := io.clear
@@ -39,6 +74,7 @@ class Ahb3CacheTestCase(dut: Ahb3CacheDut) {
     dut.io.clear #= false
     dut.io.flush #= false
     dut.io.sync #= false
+    dut.io.stallInject #= false
 
     dut.io.ahb.HTRANS #= 0 // IDLE
     dut.io.ahb.HBURST #= 0
@@ -168,6 +204,16 @@ case class Ahb3CacheTestFuzz(dut: Ahb3CacheDut) extends Ahb3CacheTestCase(dut) {
     val memory = new Array[Byte](256)
     val seed   = 42L
     val random = new Random(seed)
+
+    fork {
+        val stalls = new Random(seed)
+        while (true) {
+            dut.clockDomain.waitSampling(1 + stalls.nextInt(24))
+            dut.io.stallInject #= true
+            dut.clockDomain.waitSampling(1 + stalls.nextInt(5))
+            dut.io.stallInject #= false
+        }
+    }
 
     def writeExpected(addr: Int, sizeExp: Int, value: BigInt): Unit = {
         for (offset <- 0 until (1 << sizeExp)) {
