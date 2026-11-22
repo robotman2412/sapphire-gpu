@@ -7,7 +7,7 @@ import sapphire._
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import sapphire.dma._
+import sapphire.mem._
 import sapphire.mem._
 import sapphire.phy.spi._
 import spinal.lib.sim.StreamMonitor
@@ -16,8 +16,7 @@ import spinal.lib.sim.StreamDriver
 case class SpiMemDUT(abits: BitCount) extends Component {
     val io = new Bundle {
 
-        /** Enable; while false, will instantly stop transfer and never initiate
-          * transfer.
+        /** Enable; while false, will instantly stop transfer and never initiate transfer.
           */
         val enable = in port Bool()
 

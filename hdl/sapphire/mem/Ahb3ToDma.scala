@@ -3,10 +3,10 @@ package sapphire.mem
 // Copyright (c) 2025 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0
 
+import sapphire.mem._
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
-import sapphire.dma.DmaBus
 
 object Ahb3ToDma {
     object State extends SpinalEnum {

@@ -5,7 +5,7 @@ package sapphire.mem
 
 import spinal.core._
 import spinal.lib._
-import sapphire.dma._
+import sapphire.mem._
 import sapphire.phy.spi._
 import sapphire.util._
 
@@ -72,10 +72,8 @@ case class SpiMemCtrl(abits: BitCount) extends Component {
     import SpiMemCtrl._
     val io = new Bundle {
 
-        /** Enable; while false, will never become ready for DMA setup and
-          * therefor never do anything. WARNING: Does not initiate DMA teardown;
-          * make sure to initiate or wait for teardown before directly using the
-          * SPI controller.
+        /** Enable; while false, will never become ready for DMA setup and therefor never do anything. WARNING: Does not
+          * initiate DMA teardown; make sure to initiate or wait for teardown before directly using the SPI controller.
           */
         val enable = in port Bool()
 

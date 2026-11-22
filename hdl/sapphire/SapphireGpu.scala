@@ -1,6 +1,6 @@
 package sapphire
 
-import sapphire.dma._
+import sapphire.mem._
 import scala.collection.mutable._
 import spinal.core._
 import spinal.lib._

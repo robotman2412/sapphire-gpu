@@ -5,7 +5,7 @@ package sapphire.scanout
 
 import sapphire._
 import sapphire.color._
-import sapphire.dma._
+import sapphire.mem._
 import spinal.core._
 import spinal.lib._
 

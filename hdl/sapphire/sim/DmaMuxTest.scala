@@ -4,12 +4,11 @@ package sapphire.sim
 // SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import sapphire._
-import sapphire.dma._
+import sapphire.mem._
 import scala.util.Random
 import spinal.core.sim._
 
-/** A controller independently negotiates setup, transfers a few beats, and
-  * tears down.
+/** A controller independently negotiates setup, transfers a few beats, and tears down.
   */
 class DmaControllerSim(val bus: DmaBus, random: Random) {
     private object State extends Enumeration {
@@ -70,8 +69,7 @@ class DmaControllerSim(val bus: DmaBus, random: Random) {
     }
 }
 
-/** The target remembers its own active state and independently delays data and
-  * teardown.
+/** The target remembers its own active state and independently delays data and teardown.
   */
 class DmaTargetSim(val bus: DmaBus, random: Random) {
     private object State extends Enumeration {
@@ -109,9 +107,7 @@ class DmaTargetSim(val bus: DmaBus, random: Random) {
             assert(!bus.setup.setup.toBoolean, "target: setup while active")
             if (dataDelay > 0) dataDelay -= 1
             if (teardownDelay > 0) teardownDelay -= 1
-            if (
-                bus.setup.teardown.toBoolean && bus.setup.teardownReady.toBoolean
-            ) {
+            if (bus.setup.teardown.toBoolean && bus.setup.teardownReady.toBoolean) {
                 setupDelay = random.nextInt(3)
                 state = Idle
             } else if (
@@ -123,20 +119,15 @@ class DmaTargetSim(val bus: DmaBus, random: Random) {
     }
 }
 
-/** Checks exclusive ownership and handshake routing, without assuming an
-  * arbitration order.
+/** Checks exclusive ownership and handshake routing, without assuming an arbitration order.
   */
 class DmaMuxMonitor(controllers: Seq[DmaControllerSim], target: DmaTargetSim) {
     private var owner: Option[DmaControllerSim] = None
 
     def sample(): Unit = {
         val bus      = target.bus
-        val granted  = controllers.filter(c =>
-            c.bus.setup.setup.toBoolean && c.bus.setup.setupReady.toBoolean
-        )
-        val released = controllers.filter(c =>
-            c.bus.setup.teardown.toBoolean && c.bus.setup.teardownReady.toBoolean
-        )
+        val granted  = controllers.filter(c => c.bus.setup.setup.toBoolean && c.bus.setup.setupReady.toBoolean)
+        val released = controllers.filter(c => c.bus.setup.teardown.toBoolean && c.bus.setup.teardownReady.toBoolean)
         val setup    = bus.setup.setup.toBoolean && bus.setup.setupReady.toBoolean
         val teardown =
             bus.setup.teardown.toBoolean && bus.setup.teardownReady.toBoolean

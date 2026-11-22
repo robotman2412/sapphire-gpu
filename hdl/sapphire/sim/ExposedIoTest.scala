@@ -4,7 +4,7 @@ package sapphire.sim
 // SPDX-License-Identifier: CERN-OHL-P-2.0
 
 import sapphire._
-import sapphire.dma._
+import sapphire.mem._
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._

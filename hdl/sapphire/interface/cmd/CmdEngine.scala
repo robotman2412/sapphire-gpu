@@ -5,7 +5,7 @@ package sapphire.interface.cmd
 
 import sapphire._
 import sapphire.util._
-import sapphire.dma._
+import sapphire.mem._
 import scala.collection.mutable
 import spinal.core._
 import spinal.lib._

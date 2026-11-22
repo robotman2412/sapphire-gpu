@@ -1,4 +1,4 @@
-package sapphire.dma
+package sapphire.mem
 
 // Copyright (c) 2025 Julian Scheffers
 // SPDX-License-Identifier: CERN-OHL-P-2.0

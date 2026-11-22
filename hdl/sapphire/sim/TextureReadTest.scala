@@ -23,11 +23,11 @@ case class TextureReadTestBench(cfg: SapphireCfg) extends Component {
         val data = master port Stream(Bits(32 bits))
     }
 
-    val rom    = new AlignedAhb3Rom(
+    val rom    = new AhbLite3OnChipRom(
         AhbLite3Config(cfg.vaddrBits, 32),
         Seq(
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-        )
+        ).map(x => B(x, 32 bits))
     )
     val reader = TextureReader(cfg)
 
@@ -51,7 +51,7 @@ case class TextureReadTestBench(cfg: SapphireCfg) extends Component {
 
 object TextureReadTest extends App {
     Config.sim
-        .compile(TextureReadTestBench(SapphireCfg(0)))
+        .compile(TextureReadTestBench(SapphireCfg(0x100000000L)))
         .doSim(this.getClass.getSimpleName) { dut =>
             // Fork a process to generate the reset and the clock on the dut
             dut.clockDomain.forkStimulus(period = 10)
