@@ -118,9 +118,9 @@ case class SapphirePlCfg(
     /** Use a stage for f2i / i2f. */
     fconvStage: Boolean = true,
     /** Normal multiply stage count. */
-    normMulStages: Int = 3,
+    normMulStages: Int = 2,
     /** Small (8-bit) multiply stage count. */
-    smallMulStages: Int = 2,
+    smallMulStages: Int = 1,
     /** Use a stage for address calculation. */
     acalcStage: Boolean = true
 )

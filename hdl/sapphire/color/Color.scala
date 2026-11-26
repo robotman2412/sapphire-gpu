@@ -7,12 +7,18 @@ import spinal.core._
 import sapphire._
 
 case class Color() extends Bundle {
-    val r = UInt(8 bits)
-    val g = UInt(8 bits)
     val b = UInt(8 bits)
+    val g = UInt(8 bits)
+    val r = UInt(8 bits)
     val a = UInt(8 bits)
 
-    def apply(channel: Int): UInt = Seq(r, g, b, a)(channel)
+    def apply(channel: Int): UInt  = Seq(r, g, b, a)(channel)
+    def apply(channel: UInt): UInt = channel.mux(
+        0 -> r,
+        1 -> g,
+        2 -> b,
+        3 -> a
+    )
 
     def toVec: Vec[UInt] = Vec(r, g, b, a)
 }
